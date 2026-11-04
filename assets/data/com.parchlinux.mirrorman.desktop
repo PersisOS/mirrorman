@@ -2,9 +2,9 @@
 Type=Application
 Name=Parch Repository Manager
 GenericName=Mirror Manager
-Comment=Manage Pacman mirrors and repositories
+Comment=Manage Debian mirrors and repositories
 Categories=System;PackageManager;GTK;
-Keywords=mirror;pacman;package;repository;update;sync;cache;ranking;
+Keywords=mirror;debian;apt;package;repository;update;sync;cache;ranking;
 Exec=mirrorman
 Icon=com.parchlinux.mirrorman
 Terminal=false

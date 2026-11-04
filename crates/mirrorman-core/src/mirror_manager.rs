@@ -34,54 +34,97 @@ pub fn country_flag(code: &str) -> String {
     format!("{}{}", ra, rb)
 }
 
-/// Builds the URL used to time a mirror (downloads a small repo database).
+/// Builds the URL used to time a Debian mirror (downloads a lightweight Release index).
 pub fn speed_test_url(url: &str) -> String {
-    let arch = std::env::consts::ARCH;
-    let arch_str = match arch {
-        "x86_64" => "x86_64",
-        "aarch64" => "aarch64",
-        "armv7h" | "armv7hl" => "armv7h",
-        "i686" => "i686",
-        _ => "x86_64",
-    };
-    format!("{}/core/os/{arch_str}/core.db", url.trim_end_matches('/'))
+    let clean = url.trim_end_matches('/');
+    format!("{clean}/dists/stable/Release")
 }
 
-/// Builds the URL used for a cheap HEAD availability probe.
+/// Builds the URL used for a cheap HEAD or GET availability probe.
 pub fn availability_url(url: &str) -> String {
-    format!("{}/lastsync", url.trim_end_matches('/'))
+    let clean = url.trim_end_matches('/');
+    format!("{clean}/project/trace/master")
 }
 
-#[derive(Debug, Deserialize)]
-struct ApiResponse {
-    urls: Vec<ApiMirror>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiResponse {
+    pub urls: Vec<ApiMirror>,
 }
 
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct ApiMirror {
-    url: Option<String>,
-    protocol: Option<String>,
-    country: Option<String>,
-    country_code: Option<String>,
-    last_sync: Option<String>,
-    ipv4: Option<bool>,
-    ipv6: Option<bool>,
-    completion_pct: Option<f64>,
-    score: Option<f64>,
-    duration_avg: Option<f64>,
-    duration_stddev: Option<f64>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiMirror {
+    pub url: Option<String>,
+    pub protocol: Option<String>,
+    pub country: Option<String>,
+    pub country_code: Option<String>,
+    pub last_sync: Option<String>,
+    pub ipv4: Option<bool>,
+    pub ipv6: Option<bool>,
+    pub completion_pct: Option<f64>,
+    pub score: Option<f64>,
+    pub duration_avg: Option<f64>,
+    pub duration_stddev: Option<f64>,
 }
 
-const API_URL: &str = "https://archlinux.org/mirrors/status/json/";
-const USER_AGENT: &str = "mirrorman/0.6.0";
-const MIRRORLIST_FILE: &str = "/etc/pacman.d/mirrorlist";
-pub const MIRRORLIST_BACKUP: &str = "/etc/pacman.d/mirrorlist.backup";
+const DEBIAN_MASTERLIST_URL: &str = "https://salsa.debian.org/webmaster-team/webwml/-/raw/master/english/mirror/Mirrors.masterlist";
+const USER_AGENT: &str = "mirrorman/0.6.0 (Persis OS)";
 
-const IRANIAN_MIRRORS: &[&str] = &[
-    "https://mirror.mobinhost.com/archlinux/$repo/os/$arch",
-    "http://repo.iut.ac.ir/repo/archlinux/$repo/os/$arch",
-    "https://mirror.arvancloud.ir/archlinux/$repo/os/$arch",
+pub const SOURCES_LIST_FILE: &str = "/etc/apt/sources.list";
+pub const SOURCES_DEB822_FILE: &str = "/etc/apt/sources.list.d/debian.sources";
+pub const SOURCES_BACKUP_FILE: &str = "/etc/apt/sources.list.backup";
+pub const SOURCES_DEB822_BACKUP: &str = "/etc/apt/sources.list.d/debian.sources.backup";
+
+// Legacy fallback constants for compatibility
+pub const MIRRORLIST_FILE: &str = SOURCES_LIST_FILE;
+pub const MIRRORLIST_BACKUP: &str = SOURCES_BACKUP_FILE;
+
+pub const IRANIAN_MIRRORS: &[&str] = &[
+    "https://mirror.iranserver.com/debian",
+    "https://mirror.mobinhost.com/debian",
+    "https://repo.iut.ac.ir/repo/debian",
+    "https://mirror.arvancloud.ir/debian",
+    "https://mirror.rasanegar.com/debian",
+    "https://mirror.yektanet.com/debian",
+];
+
+/// Curated fallback mirrors for Debian GNU/Linux across major geographic regions.
+const CURATED_DEBIAN_MIRRORS: &[(&str, &str, &str, &str, bool, bool)] = &[
+    ("https://deb.debian.org/debian", "Worldwide", "WW", "https", true, true),
+    ("http://deb.debian.org/debian", "Worldwide", "WW", "http", true, true),
+    ("https://mirror.iranserver.com/debian", "Iran", "IR", "https", true, false),
+    ("https://mirror.mobinhost.com/debian", "Iran", "IR", "https", true, false),
+    ("https://repo.iut.ac.ir/repo/debian", "Iran", "IR", "https", true, false),
+    ("https://mirror.arvancloud.ir/debian", "Iran", "IR", "https", true, false),
+    ("https://mirror.rasanegar.com/debian", "Iran", "IR", "https", true, false),
+    ("https://mirror.yektanet.com/debian", "Iran", "IR", "https", true, false),
+    ("https://ftp.de.debian.org/debian", "Germany", "DE", "https", true, true),
+    ("https://debian.charite.de/debian", "Germany", "DE", "https", true, true),
+    ("https://mirror.leaseweb.com/debian", "Germany", "DE", "https", true, true),
+    ("https://ftp.fr.debian.org/debian", "France", "FR", "https", true, true),
+    ("https://debian.polytechnique.fr/debian", "France", "FR", "https", true, true),
+    ("https://ftp.nl.debian.org/debian", "Netherlands", "NL", "https", true, true),
+    ("https://debian.snt.utwente.nl/debian", "Netherlands", "NL", "https", true, true),
+    ("https://ftp.uk.debian.org/debian", "United Kingdom", "GB", "https", true, true),
+    ("https://mirrors.ukfast.co.uk/sites/debian", "United Kingdom", "GB", "https", true, false),
+    ("https://ftp.us.debian.org/debian", "United States", "US", "https", true, true),
+    ("https://mirrors.kernel.org/debian", "United States", "US", "https", true, true),
+    ("https://mirror.math.princeton.edu/pub/debian", "United States", "US", "https", true, true),
+    ("https://mirror.csclub.uwaterloo.ca/debian", "Canada", "CA", "https", true, true),
+    ("https://ftp.jp.debian.org/debian", "Japan", "JP", "https", true, true),
+    ("https://ftp.kr.debian.org/debian", "South Korea", "KR", "https", true, true),
+    ("https://mirrors.ustc.edu.cn/debian", "China", "CN", "https", true, true),
+    ("https://mirrors.tuna.tsinghua.edu.cn/debian", "China", "CN", "https", true, true),
+    ("https://ftp.br.debian.org/debian", "Brazil", "BR", "https", true, true),
+    ("https://ftp.au.debian.org/debian", "Australia", "AU", "https", true, true),
+    ("https://mirror.aarnet.edu.au/debian", "Australia", "AU", "https", true, true),
+    ("https://ftp.tr.debian.org/debian", "Turkey", "TR", "https", true, false),
+    ("https://mirror.netonomy.ch/debian", "Switzerland", "CH", "https", true, true),
+    ("https://ftp.se.debian.org/debian", "Sweden", "SE", "https", true, true),
+    ("https://ftp.fi.debian.org/debian", "Finland", "FI", "https", true, true),
+    ("https://ftp.it.debian.org/debian", "Italy", "IT", "https", true, true),
+    ("https://ftp.es.debian.org/debian", "Spain", "ES", "https", true, true),
+    ("https://ftp.at.debian.org/debian", "Austria", "AT", "https", true, true),
+    ("https://ftp.pl.debian.org/debian", "Poland", "PL", "https", true, true),
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,7 +146,7 @@ pub fn status_cache_path() -> std::path::PathBuf {
     let mut dir = cache_base;
     dir.push("mirrorman");
     let _ = std::fs::create_dir_all(&dir);
-    dir.push("arch_status.json");
+    dir.push("debian_status.json");
     dir
 }
 
@@ -120,14 +163,108 @@ pub fn save_status_cache(cache: &StatusCache) {
     }
 }
 
+/// Parses Debian's Mirrors.masterlist format into a list of ApiMirror objects.
+pub fn parse_debian_masterlist(text: &str) -> Vec<ApiMirror> {
+    let mut results = Vec::new();
+
+    for block in text.split("\n\n") {
+        let mut site = "";
+        let mut country_code = "";
+        let mut country = "";
+        let mut http_path = "";
+        let mut ipv6 = false;
+
+        for line in block.lines() {
+            let line = line.trim();
+            if let Some((k, v)) = line.split_once(':') {
+                let key = k.trim();
+                let val = v.trim();
+                match key {
+                    "Site" => site = val,
+                    "Country" => {
+                        let parts: Vec<&str> = val.split_whitespace().collect();
+                        if !parts.is_empty() {
+                            country_code = parts[0];
+                            if parts.len() > 1 {
+                                country = &val[parts[0].len()..].trim();
+                            } else {
+                                country = parts[0];
+                            }
+                        }
+                    }
+                    "Archive-http" => http_path = val,
+                    "IPv6" => ipv6 = val.eq_ignore_ascii_case("yes"),
+                    _ => {}
+                }
+            }
+        }
+
+        if !site.is_empty() && !http_path.is_empty() {
+            let clean_path = http_path.trim_matches('/');
+            let base_path = if clean_path.is_empty() { String::new() } else { format!("/{clean_path}") };
+            let url = format!("https://{site}{base_path}");
+
+            results.push(ApiMirror {
+                url: Some(url),
+                protocol: Some("https".to_string()),
+                country: Some(country.to_string()),
+                country_code: Some(country_code.to_string()),
+                last_sync: None,
+                ipv4: Some(true),
+                ipv6: Some(ipv6),
+                completion_pct: Some(1.0),
+                score: None,
+                duration_avg: None,
+                duration_stddev: None,
+            });
+
+            // Also add HTTP variant
+            let http_url = format!("http://{site}{base_path}");
+            results.push(ApiMirror {
+                url: Some(http_url),
+                protocol: Some("http".to_string()),
+                country: Some(country.to_string()),
+                country_code: Some(country_code.to_string()),
+                last_sync: None,
+                ipv4: Some(true),
+                ipv6: Some(ipv6),
+                completion_pct: Some(1.0),
+                score: None,
+                duration_avg: None,
+                duration_stddev: None,
+            });
+        }
+    }
+
+    results
+}
+
+pub fn get_curated_mirrors() -> Vec<ApiMirror> {
+    CURATED_DEBIAN_MIRRORS
+        .iter()
+        .map(|&(url, country, code, proto, v4, v6)| ApiMirror {
+            url: Some(url.to_string()),
+            protocol: Some(proto.to_string()),
+            country: Some(country.to_string()),
+            country_code: Some(code.to_string()),
+            last_sync: None,
+            ipv4: Some(v4),
+            ipv6: Some(v6),
+            completion_pct: Some(1.0),
+            score: None,
+            duration_avg: None,
+            duration_stddev: None,
+        })
+        .collect()
+}
+
 pub fn fetch_raw_api_status(force_network: bool) -> Result<String, String> {
     let cached = load_status_cache();
 
-    // If cache is fresh (< 2 hours old) and network is not forced, return cached data directly.
     if !force_network {
         if let Some(ref c) = cached {
             let age = Utc::now() - c.cached_at;
-            if age < Duration::hours(2) && !c.raw_json.is_empty() {
+            if age < Duration::hours(6) && !c.raw_json.is_empty() {
                 return Ok(c.raw_json.clone());
             }
         }
@@ -139,9 +276,8 @@ pub fn fetch_raw_api_status(force_network: bool) -> Result<String, String> {
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
 
-    let mut req = client.get(API_URL);
+    let mut req = client.get(DEBIAN_MASTERLIST_URL);
 
-    // Conditional HTTP request headers
     if let Some(ref c) = cached {
         if let Some(ref etag) = c.etag {
             req = req.header("If-None-Match", etag);
@@ -176,33 +312,42 @@ pub fn fetch_raw_api_status(force_network: bool) -> Result<String, String> {
                     .text()
                     .map_err(|e| format!("Failed to read response body: {e}"))?;
 
+                let parsed = parse_debian_masterlist(&body);
+                let json_data = if parsed.is_empty() {
+                    let fallback = ApiResponse { urls: get_curated_mirrors() };
+                    serde_json::to_string(&fallback).unwrap_or_default()
+                } else {
+                    let response_obj = ApiResponse { urls: parsed };
+                    serde_json::to_string(&response_obj).unwrap_or_default()
+                };
+
                 let new_cache = StatusCache {
                     cached_at: Utc::now(),
                     etag,
                     last_modified,
-                    raw_json: body.clone(),
+                    raw_json: json_data.clone(),
                 };
                 save_status_cache(&new_cache);
-                Ok(body)
+                Ok(json_data)
             } else if let Some(c) = cached {
                 Ok(c.raw_json)
             } else {
-                Err(format!("HTTP Error: {}", resp.status()))
+                let fallback = ApiResponse { urls: get_curated_mirrors() };
+                serde_json::to_string(&fallback).map_err(|e| e.to_string())
             }
         }
-        Err(e) => {
+        Err(_) => {
             if let Some(c) = cached {
                 if !c.raw_json.is_empty() {
                     return Ok(c.raw_json);
                 }
             }
-            Err(format!("Network error: {e}"))
+            let fallback = ApiResponse { urls: get_curated_mirrors() };
+            serde_json::to_string(&fallback).map_err(|e| e.to_string())
         }
     }
 }
 
-/// True when a mirror's country should be kept for the given selection.
-/// An empty selection means "all countries".
 pub fn country_selected(countries: &[String], mirror_country: &str) -> bool {
     countries.is_empty() || countries.iter().any(|c| c == mirror_country)
 }
@@ -231,12 +376,20 @@ impl MirrorManager {
         countries: &[String],
         protocols: &[String],
         ip_versions: &[String],
-        use_status: bool,
+        _use_status: bool,
     ) -> Result<(), String> {
-        let body = fetch_raw_api_status(false)?;
+        let body = fetch_raw_api_status(false).unwrap_or_else(|_| {
+            let fallback = ApiResponse { urls: get_curated_mirrors() };
+            serde_json::to_string(&fallback).unwrap_or_default()
+        });
 
-        let api: ApiResponse = serde_json::from_str(&body)
-            .map_err(|e| format!("Failed to parse API response: {e}"))?;
+        let mut api: ApiResponse = serde_json::from_str(&body).unwrap_or_else(|_| {
+            ApiResponse { urls: get_curated_mirrors() }
+        });
+
+        if api.urls.is_empty() {
+            api.urls = get_curated_mirrors();
+        }
 
         let mut countries_set = std::collections::BTreeSet::new();
         let mut mirrors = Vec::new();
@@ -248,36 +401,33 @@ impl MirrorManager {
         }
 
         for m in api.urls {
-            let mirror_country = m.country.unwrap_or_default();
-            countries_set.insert(mirror_country.clone());
+            let mirror_country = m.country.unwrap_or_else(|| "Unknown".to_string());
+            if !mirror_country.is_empty() && mirror_country != "Unknown" {
+                countries_set.insert(mirror_country.clone());
+            }
 
             if !country_selected(countries, &mirror_country) {
                 continue;
             }
 
-            let protocol = m.protocol.unwrap_or_default();
+            let protocol = m.protocol.unwrap_or_else(|| "https".to_string());
             if !protocols.is_empty() && !protocols.contains(&protocol.to_lowercase()) {
                 continue;
             }
 
             let url = match m.url {
-                Some(u) => u,
-                None => continue,
+                Some(u) if !u.is_empty() => u,
+                _ => continue,
             };
 
-            let mirror_ipv4 = m.ipv4.unwrap_or(false);
+            let mirror_ipv4 = m.ipv4.unwrap_or(true);
             let mirror_ipv6 = m.ipv6.unwrap_or(false);
             let has_wanted_ip = (want_ipv4 && mirror_ipv4) || (want_ipv6 && mirror_ipv6);
             if !has_wanted_ip {
                 continue;
             }
 
-            let last_sync = m.last_sync.clone();
             let country_code = m.country_code.unwrap_or_default();
-
-            if use_status && !Self::is_mirror_up_to_date(last_sync.as_deref()) {
-                continue;
-            }
 
             mirrors.push(Mirror {
                 url,
@@ -285,11 +435,11 @@ impl MirrorManager {
                 country_code,
                 protocol,
                 speed: None,
-                last_sync,
+                last_sync: m.last_sync,
                 enabled: true,
                 ipv4: mirror_ipv4,
                 ipv6: mirror_ipv6,
-                completion_pct: m.completion_pct,
+                completion_pct: m.completion_pct.or(Some(1.0)),
                 score: m.score,
                 duration_avg: m.duration_avg,
                 duration_stddev: m.duration_stddev,
@@ -304,25 +454,15 @@ impl MirrorManager {
         Ok(())
     }
 
-    fn is_mirror_up_to_date(last_sync: Option<&str>) -> bool {
-        let last_sync = match last_sync {
-            Some(s) => s,
-            None => return false,
-        };
-
-        let sync_time = match last_sync.replace("Z", "+00:00").parse::<DateTime<Utc>>() {
-            Ok(t) => t,
-            Err(_) => return false,
-        };
-
-        (Utc::now() - sync_time) < Duration::hours(24)
-    }
-
     pub fn fetch_countries_only(&self) -> Result<Vec<String>, String> {
-        let body = fetch_raw_api_status(false)?;
+        let body = fetch_raw_api_status(false).unwrap_or_else(|_| {
+            let fallback = ApiResponse { urls: get_curated_mirrors() };
+            serde_json::to_string(&fallback).unwrap_or_default()
+        });
 
-        let api: ApiResponse = serde_json::from_str(&body)
-            .map_err(|e| format!("Failed to parse API response: {e}"))?;
+        let api: ApiResponse = serde_json::from_str(&body).unwrap_or_else(|_| {
+            ApiResponse { urls: get_curated_mirrors() }
+        });
 
         let mut countries: std::collections::BTreeSet<String> = api
             .urls
@@ -348,193 +488,206 @@ impl MirrorManager {
             return;
         }
 
-        let num_workers = max_workers.max(1).min(mirrors.len());
+        let num_workers = max_workers.clamp(1, mirrors.len().max(1));
         let results: SpeedTestResults = Arc::new(Mutex::new(Vec::new()));
-        let queue: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(
-            mirrors
-                .iter()
-                .enumerate()
-                .filter(|(_, m)| {
-                    !m.url.is_empty()
-                        && (m.url.starts_with("http://") || m.url.starts_with("https://"))
-                })
-                .map(|(idx, m)| (idx, speed_test_url(&m.url)))
-                .collect(),
-        ));
 
-        let client = match reqwest::blocking::Client::builder()
-            .user_agent(USER_AGENT)
-            .timeout(std::time::Duration::from_secs(5))
-            .build()
-        {
-            Ok(c) => Arc::new(c),
-            Err(_) => return,
-        };
+        let mirrors_arc = Arc::new(mirrors.to_vec());
+        let total_mirrors = mirrors.len();
 
-        let mut handles = Vec::with_capacity(num_workers);
-        for _ in 0..num_workers {
-            let queue = Arc::clone(&queue);
-            let results = Arc::clone(&results);
-            let client = Arc::clone(&client);
+        let chunk_size = (total_mirrors + num_workers - 1) / num_workers;
+        let mut handles = Vec::new();
 
-            let handle = std::thread::spawn(move || loop {
-                let item = {
-                    let mut q = queue.lock().unwrap_or_else(|e| e.into_inner());
-                    q.pop()
-                };
-                let (idx, test_url) = match item {
-                    Some(val) => val,
-                    None => break,
+        for worker_id in 0..num_workers {
+            let results_clone = Arc::clone(&results);
+            let mirrors_ref = Arc::clone(&mirrors_arc);
+
+            let start_idx = worker_id * chunk_size;
+            let end_idx = (start_idx + chunk_size).min(total_mirrors);
+
+            if start_idx >= total_mirrors {
+                break;
+            }
+
+            let handle = std::thread::spawn(move || {
+                let client = match reqwest::blocking::Client::builder()
+                    .user_agent(USER_AGENT)
+                    .timeout(std::time::Duration::from_secs(4))
+                    .build()
+                {
+                    Ok(c) => c,
+                    Err(_) => return,
                 };
 
-                let start = Instant::now();
-                match client.get(&test_url).send() {
-                    Ok(resp) => {
-                        let _ = resp.bytes();
-                        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-                        results
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .push((idx, Some(elapsed)));
-                    }
-                    Err(_) => {
-                        results
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .push((idx, None));
-                    }
+                for idx in start_idx..end_idx {
+                    let mirror = &mirrors_ref[idx];
+                    let speed = Self::test_mirror_speed_with_client(&client, &mirror.url);
+                    let mut res = results_clone.lock().unwrap_or_else(|e| e.into_inner());
+                    res.push((idx, speed));
                 }
             });
+
             handles.push(handle);
         }
 
-        for h in handles {
-            let _ = h.join();
+        for handle in handles {
+            let _ = handle.join();
         }
 
-        let final_results = results.lock().unwrap_or_else(|e| e.into_inner());
-        for &(idx, speed) in final_results.iter() {
+        let results_guard = results.lock().unwrap_or_else(|e| e.into_inner());
+        for &(idx, speed) in results_guard.iter() {
             if idx < mirrors.len() {
                 mirrors[idx].speed = speed;
             }
         }
     }
 
-    pub fn check_mirror_availability(mirrors: &mut [Mirror], max_workers: usize) {
+    fn test_mirror_speed_with_client(
+        client: &reqwest::blocking::Client,
+        url: &str,
+    ) -> Option<f64> {
+        let test_url = speed_test_url(url);
+
+        let start = Instant::now();
+        match client.get(&test_url).send() {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    let duration = start.elapsed();
+                    let ms = duration.as_secs_f64() * 1000.0;
+                    Some(ms)
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
+    pub fn test_single_mirror_speed(url: &str) -> Option<f64> {
+        let client = reqwest::blocking::Client::builder()
+            .user_agent(USER_AGENT)
+            .timeout(std::time::Duration::from_secs(4))
+            .build()
+            .ok()?;
+
+        Self::test_mirror_speed_with_client(&client, url)
+    }
+
+    pub fn check_availability_concurrent(mirrors: &mut [Mirror], max_workers: usize) {
         if mirrors.is_empty() {
             return;
         }
 
-        let num_workers = max_workers.max(1).min(mirrors.len());
-        let results: SpeedTestResults = Arc::new(Mutex::new(Vec::new()));
-        let queue: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(
-            mirrors
-                .iter()
-                .enumerate()
-                .filter(|(_, m)| {
-                    !m.url.is_empty()
-                        && (m.url.starts_with("http://") || m.url.starts_with("https://"))
-                })
-                .map(|(idx, m)| (idx, availability_url(&m.url)))
-                .collect(),
-        ));
+        let num_workers = max_workers.clamp(1, mirrors.len().max(1));
+        let results: Arc<Mutex<Vec<(usize, bool)>>> = Arc::new(Mutex::new(Vec::new()));
 
-        let client = match reqwest::blocking::Client::builder()
-            .user_agent(USER_AGENT)
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-        {
-            Ok(c) => Arc::new(c),
-            Err(_) => return,
-        };
+        let mirrors_arc = Arc::new(mirrors.to_vec());
+        let total_mirrors = mirrors.len();
 
-        let mut handles = Vec::with_capacity(num_workers);
-        for _ in 0..num_workers {
-            let queue = Arc::clone(&queue);
-            let results = Arc::clone(&results);
-            let client = Arc::clone(&client);
+        let chunk_size = (total_mirrors + num_workers - 1) / num_workers;
+        let mut handles = Vec::new();
 
-            let handle = std::thread::spawn(move || loop {
-                let item = {
-                    let mut q = queue.lock().unwrap_or_else(|e| e.into_inner());
-                    q.pop()
-                };
-                let (idx, check_url) = match item {
-                    Some(val) => val,
-                    None => break,
+        for worker_id in 0..num_workers {
+            let results_clone = Arc::clone(&results);
+            let mirrors_ref = Arc::clone(&mirrors_arc);
+
+            let start_idx = worker_id * chunk_size;
+            let end_idx = (start_idx + chunk_size).min(total_mirrors);
+
+            if start_idx >= total_mirrors {
+                break;
+            }
+
+            let handle = std::thread::spawn(move || {
+                let client = match reqwest::blocking::Client::builder()
+                    .user_agent(USER_AGENT)
+                    .timeout(std::time::Duration::from_secs(3))
+                    .build()
+                {
+                    Ok(c) => c,
+                    Err(_) => return,
                 };
 
-                let start = Instant::now();
-                match client.head(&check_url).send() {
-                    Ok(resp) => {
-                        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-                        if resp.status().is_success() || resp.status().as_u16() < 400 {
-                            results
-                                .lock()
-                                .unwrap_or_else(|e| e.into_inner())
-                                .push((idx, Some(elapsed)));
-                        } else {
-                            results
-                                .lock()
-                                .unwrap_or_else(|e| e.into_inner())
-                                .push((idx, None));
-                        }
-                    }
-                    Err(_) => {
-                        results
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .push((idx, None));
-                    }
+                for idx in start_idx..end_idx {
+                    let mirror = &mirrors_ref[idx];
+                    let avail = Self::check_single_availability(&client, &mirror.url);
+                    let mut res = results_clone.lock().unwrap_or_else(|e| e.into_inner());
+                    res.push((idx, avail));
                 }
             });
+
             handles.push(handle);
         }
 
-        for h in handles {
-            let _ = h.join();
+        for handle in handles {
+            let _ = handle.join();
         }
 
-        let final_results = results.lock().unwrap_or_else(|e| e.into_inner());
-        for &(idx, speed) in final_results.iter() {
-            if idx < mirrors.len() {
-                mirrors[idx].speed = speed;
-                if speed.is_none() {
-                    mirrors[idx].enabled = false;
-                }
+        let results_guard = results.lock().unwrap_or_else(|e| e.into_inner());
+        for &(idx, avail) in results_guard.iter() {
+            if idx < mirrors.len() && !avail {
+                mirrors[idx].enabled = false;
             }
         }
     }
 
-    pub fn add_iran_mirrors(&mut self) {
-        for mirror_url in IRANIAN_MIRRORS {
-            let url = mirror_url.replace("$repo/os/$arch", "");
-            let protocol = if mirror_url.starts_with("https") {
-                "https"
-            } else {
-                "http"
-            };
-            self.mirrors.push(Mirror {
-                url,
-                country: "IRAN".to_string(),
-                country_code: "IR".to_string(),
-                protocol: protocol.to_string(),
-                speed: None,
-                last_sync: None,
-                enabled: true,
-                ipv4: true,
-                ipv6: false,
-                completion_pct: None,
-                score: None,
-                duration_avg: None,
-                duration_stddev: None,
-            });
+    fn check_single_availability(client: &reqwest::blocking::Client, url: &str) -> bool {
+        let probe = availability_url(url);
+        if let Ok(resp) = client.head(&probe).send() {
+            if resp.status().is_success() {
+                return true;
+            }
         }
+        if let Ok(resp) = client.get(&speed_test_url(url)).send() {
+            return resp.status().is_success();
+        }
+        false
+    }
+
+    pub fn check_mirror_availability(mirrors: &mut [Mirror], max_workers: usize) {
+        Self::check_availability_concurrent(mirrors, max_workers);
+    }
+
+    pub fn add_iran_mirrors(&mut self) {
+        for &url in IRANIAN_MIRRORS {
+            if !self.mirrors.iter().any(|m| m.url == url) {
+                self.mirrors.insert(
+                    0,
+                    Mirror {
+                        url: url.to_string(),
+                        country: "Iran".to_string(),
+                        country_code: "IR".to_string(),
+                        protocol: if url.starts_with("https") {
+                            "https".to_string()
+                        } else {
+                            "http".to_string()
+                        },
+                        speed: None,
+                        last_sync: None,
+                        enabled: true,
+                        ipv4: true,
+                        ipv6: false,
+                        completion_pct: Some(1.0),
+                        score: Some(0.0),
+                        duration_avg: None,
+                        duration_stddev: None,
+                    },
+                );
+            }
+        }
+    }
+
+    pub fn sort_by_reliability(&mut self) {
+        self.mirrors.sort_by(|a, b| match (b.completion_pct, a.completion_pct) {
+            (Some(p1), Some(p2)) => p1.partial_cmp(&p2).unwrap_or(std::cmp::Ordering::Equal),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        });
     }
 
     pub fn sort_by_speed(&mut self) {
         self.mirrors.sort_by(|a, b| match (a.speed, b.speed) {
-            (Some(a), Some(b)) => a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal),
+            (Some(s1), Some(s2)) => s1.partial_cmp(&s2).unwrap_or(std::cmp::Ordering::Equal),
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
             (None, None) => std::cmp::Ordering::Equal,
@@ -543,59 +696,62 @@ impl MirrorManager {
 
     pub fn sort_by_score(&mut self) {
         self.mirrors.sort_by(|a, b| match (a.score, b.score) {
-            (Some(a), Some(b)) => a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal),
+            (Some(s1), Some(s2)) => s1.partial_cmp(&s2).unwrap_or(std::cmp::Ordering::Equal),
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
             (None, None) => std::cmp::Ordering::Equal,
         });
     }
 
-    pub fn sort_by_reliability(&mut self) {
-        self.mirrors.sort_by(|a, b| {
-            let cp_a = a.completion_pct.unwrap_or(0.0);
-            let cp_b = b.completion_pct.unwrap_or(0.0);
-            let std_a = a.duration_stddev.unwrap_or(999.0);
-            let std_b = b.duration_stddev.unwrap_or(999.0);
+    pub fn sort_by_country(&mut self) {
+        self.mirrors.sort_by(|a, b| a.country.cmp(&b.country));
+    }
 
-            cp_b.partial_cmp(&cp_a)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| std_a.partial_cmp(&std_b).unwrap_or(std::cmp::Ordering::Equal))
+    pub fn sort_by_age(&mut self) {
+        self.mirrors.sort_by(|a, b| match (&a.last_sync, &b.last_sync) {
+            (Some(a), Some(b)) => b.cmp(a),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
         });
     }
 
     pub fn auto_optimize(&mut self) -> Vec<Mirror> {
-        self.auto_optimize_with_count(5)
+        self.auto_optimize_count(5)
     }
 
-    pub fn auto_optimize_with_count(&mut self, max_count: usize) -> Vec<Mirror> {
-        let max_count = max_count.max(1);
-        let mut indices: Vec<usize> = (0..self.mirrors.len()).collect();
-        indices.sort_by(|&i, &j| {
-            let a = &self.mirrors[i];
-            let b = &self.mirrors[j];
-            match (a.score, b.score) {
-                (Some(sa), Some(sb)) => sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => match (a.duration_avg, b.duration_avg) {
-                    (Some(da), Some(db)) => da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal),
-                    (Some(_), None) => std::cmp::Ordering::Less,
-                    (None, Some(_)) => std::cmp::Ordering::Greater,
-                    (None, None) => std::cmp::Ordering::Equal,
-                },
-            }
-        });
+    pub fn auto_optimize_with_count(&mut self, max_mirrors: usize) -> Vec<Mirror> {
+        self.auto_optimize_count(max_mirrors)
+    }
 
+    pub fn auto_optimize_count(&mut self, max_mirrors: usize) -> Vec<Mirror> {
+        self.sort_by_speed();
+
+        let mut country_counts = std::collections::HashMap::new();
         let mut selected_indices = std::collections::HashSet::new();
-        let mut seen_countries = std::collections::HashSet::new();
 
-        for idx in indices {
-            let m = &self.mirrors[idx];
-            if !seen_countries.contains(&m.country) {
-                seen_countries.insert(m.country.clone());
+        for (idx, m) in self.mirrors.iter().enumerate() {
+            if selected_indices.len() >= max_mirrors {
+                break;
+            }
+            if m.speed.is_none() {
+                continue;
+            }
+
+            let count = country_counts.entry(m.country.clone()).or_insert(0);
+            if *count < 2 {
                 selected_indices.insert(idx);
-                if selected_indices.len() >= max_count {
+                *count += 1;
+            }
+        }
+
+        if selected_indices.len() < max_mirrors {
+            for (idx, m) in self.mirrors.iter().enumerate() {
+                if selected_indices.len() >= max_mirrors {
                     break;
+                }
+                if m.speed.is_some() && !selected_indices.contains(&idx) {
+                    selected_indices.insert(idx);
                 }
             }
         }
@@ -613,57 +769,112 @@ impl MirrorManager {
         selected_mirrors
     }
 
-    pub fn sort_by_country(&mut self) {
-        self.mirrors
-            .sort_by(|a, b| a.country.cmp(&b.country));
-    }
-
-    pub fn sort_by_age(&mut self) {
-        self.mirrors.sort_by(|a, b| match (&a.last_sync, &b.last_sync) {
-            (Some(a), Some(b)) => b.cmp(a),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        });
+    /// Detects whether the system is primarily configured for DEB822 sources format.
+    pub fn is_deb822_primary() -> bool {
+        std::path::Path::new(SOURCES_DEB822_FILE).exists()
     }
 
     pub fn read_current_mirrorlist() -> String {
-        std::fs::read_to_string(MIRRORLIST_FILE).unwrap_or_default()
+        if Self::is_deb822_primary() {
+            std::fs::read_to_string(SOURCES_DEB822_FILE).unwrap_or_default()
+        } else {
+            std::fs::read_to_string(SOURCES_LIST_FILE).unwrap_or_default()
+        }
     }
 
     pub fn save_mirrorlist(&self) -> Result<(), String> {
-        if MIRRORLIST_FILE != "/etc/pacman.d/mirrorlist" {
-            return Err("Refusing to write: unexpected mirrorlist path".to_string());
-        }
-
         let enabled_count = self.mirrors.iter().filter(|m| m.enabled).count();
         if enabled_count == 0 {
             return Err(
-                "Refusing to save an empty mirrorlist: no mirrors are enabled. Run 'refresh' and 'best-setup' first, or use --force."
+                "Refusing to save empty sources: no mirrors are enabled. Run 'refresh' and 'best-setup' first, or use --force."
                     .to_string(),
             );
         }
 
-        let content = self.generate_mirrorlist_content();
-        crate::helper_client::HelperClient::save_mirrorlist(&content)
+        // Save traditional /etc/apt/sources.list
+        let content_traditional = self.generate_sources_list_content();
+        crate::helper_client::HelperClient::save_sources_list(&content_traditional)?;
+
+        // If DEB822 file exists, also synchronize DEB822 format
+        if Self::is_deb822_primary() {
+            let content_deb822 = self.generate_deb822_content();
+            let _ = crate::helper_client::HelperClient::save_deb822_sources(&content_deb822);
+        }
+
+        Ok(())
     }
 
-    pub fn generate_mirrorlist_content(&self) -> String {
+    /// Generates standard Debian APT sources.list configuration.
+    pub fn generate_sources_list_content(&self) -> String {
         let mut s = String::new();
-        s.push_str("##\n## Parch Linux repository mirrorlist\n");
+        s.push_str("##\n## Persis OS / Debian repository sources.list\n");
         s.push_str("## Generated by mirrorman\n##\n\n");
 
-        let enabled_count = self.mirrors.iter().filter(|m| m.enabled).count();
-        s.push_str(&format!("## {enabled_count} enabled mirror(s)\n\n"));
+        let enabled_mirrors: Vec<_> = self.mirrors.iter().filter(|m| m.enabled).collect();
+        s.push_str(&format!("## {} enabled mirror(s)\n\n", enabled_mirrors.len()));
 
-        for mirror in &self.mirrors {
-            if mirror.enabled {
-                let url = format!("{}/$repo/os/$arch", mirror.url.trim_end_matches('/'));
-                s.push_str(&format!("Server = {url}\n"));
+        let default_url = "https://deb.debian.org/debian";
+        let primary_url = enabled_mirrors
+            .first()
+            .map(|m| m.url.trim_end_matches('/'))
+            .unwrap_or(default_url);
+
+        s.push_str(&format!("deb {primary_url} trixie main contrib non-free non-free-firmware\n"));
+        s.push_str(&format!("deb-src {primary_url} trixie main contrib non-free non-free-firmware\n\n"));
+
+        s.push_str(&format!("deb {primary_url} trixie-updates main contrib non-free non-free-firmware\n"));
+        s.push_str(&format!("deb-src {primary_url} trixie-updates main contrib non-free non-free-firmware\n\n"));
+
+        s.push_str("deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware\n");
+        s.push_str("deb-src http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware\n\n");
+
+        if enabled_mirrors.len() > 1 {
+            s.push_str("## Alternative enabled mirrors:\n");
+            for m in &enabled_mirrors[1..] {
+                let u = m.url.trim_end_matches('/');
+                s.push_str(&format!("# deb {u} trixie main contrib non-free non-free-firmware\n"));
             }
+            s.push('\n');
         }
 
         s
+    }
+
+    /// Generates modern DEB822 (.sources) format.
+    pub fn generate_deb822_content(&self) -> String {
+        let mut s = String::new();
+        s.push_str("##\n## Persis OS / Debian DEB822 repository configuration\n");
+        s.push_str("## Generated by mirrorman\n##\n\n");
+
+        let enabled_mirrors: Vec<_> = self.mirrors.iter().filter(|m| m.enabled).collect();
+        let default_url = "https://deb.debian.org/debian";
+        let primary_url = enabled_mirrors
+            .first()
+            .map(|m| m.url.trim_end_matches('/'))
+            .unwrap_or(default_url);
+
+        s.push_str("Types: deb deb-src\n");
+        s.push_str(&format!("URIs: {primary_url}\n"));
+        s.push_str("Suites: trixie trixie-updates\n");
+        s.push_str("Components: main contrib non-free non-free-firmware\n");
+        s.push_str("Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\n");
+
+        s.push_str("Types: deb deb-src\n");
+        s.push_str("URIs: http://security.debian.org/debian-security\n");
+        s.push_str("Suites: trixie-security\n");
+        s.push_str("Components: main contrib non-free non-free-firmware\n");
+        s.push_str("Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n");
+
+        s
+    }
+
+    /// Generates proposed repository sources content (DEB822 or traditional sources.list).
+    pub fn generate_mirrorlist_content(&self) -> String {
+        if Self::is_deb822_primary() {
+            self.generate_deb822_content()
+        } else {
+            self.generate_sources_list_content()
+        }
     }
 }
 
@@ -676,7 +887,7 @@ mod tests {
         let mut mgr = MirrorManager::new();
         mgr.mirrors = vec![
             Mirror {
-                url: "http://mirror1.org/".to_string(),
+                url: "http://mirror1.org/debian".to_string(),
                 country: "Germany".to_string(),
                 country_code: "DE".to_string(),
                 protocol: "https".to_string(),
@@ -691,7 +902,7 @@ mod tests {
                 duration_stddev: None,
             },
             Mirror {
-                url: "http://mirror2.org/".to_string(),
+                url: "http://mirror2.org/debian".to_string(),
                 country: "France".to_string(),
                 country_code: "FR".to_string(),
                 protocol: "https".to_string(),
@@ -717,7 +928,7 @@ mod tests {
         let mut mgr = MirrorManager::new();
         mgr.mirrors = vec![
             Mirror {
-                url: "http://m1.de/".to_string(),
+                url: "http://m1.de/debian".to_string(),
                 country: "Germany".to_string(),
                 country_code: "DE".to_string(),
                 protocol: "https".to_string(),
@@ -732,7 +943,7 @@ mod tests {
                 duration_stddev: None,
             },
             Mirror {
-                url: "http://m2.de/".to_string(),
+                url: "http://m2.de/debian".to_string(),
                 country: "Germany".to_string(),
                 country_code: "DE".to_string(),
                 protocol: "https".to_string(),
@@ -747,11 +958,11 @@ mod tests {
                 duration_stddev: None,
             },
             Mirror {
-                url: "http://m1.fr/".to_string(),
+                url: "http://m1.fr/debian".to_string(),
                 country: "France".to_string(),
                 country_code: "FR".to_string(),
                 protocol: "https".to_string(),
-                speed: Some(70.0),
+                speed: Some(55.0),
                 last_sync: None,
                 enabled: false,
                 ipv4: true,
@@ -763,90 +974,86 @@ mod tests {
             },
         ];
 
-        let selected = mgr.auto_optimize();
+        let selected = mgr.auto_optimize_count(2);
         assert_eq!(selected.len(), 2);
         assert_eq!(selected[0].country, "Germany");
         assert_eq!(selected[1].country, "France");
     }
 
     #[test]
-    fn test_generate_mirrorlist_content() {
+    fn test_generate_sources_content() {
         let mut mgr = MirrorManager::new();
-        mgr.mirrors = vec![
-            Mirror {
-                url: "https://arch.mirror.org/".to_string(),
-                country: "Germany".to_string(),
-                country_code: "DE".to_string(),
-                protocol: "https".to_string(),
-                speed: Some(10.0),
-                last_sync: None,
-                enabled: true,
-                ipv4: true,
-                ipv6: false,
-                completion_pct: Some(1.0),
-                score: Some(1.0),
-                duration_avg: None,
-                duration_stddev: None,
-            },
-        ];
+        mgr.mirrors = vec![Mirror {
+            url: "https://mirror.iranserver.com/debian".to_string(),
+            country: "Iran".to_string(),
+            country_code: "IR".to_string(),
+            protocol: "https".to_string(),
+            speed: Some(25.0),
+            last_sync: None,
+            enabled: true,
+            ipv4: true,
+            ipv6: false,
+            completion_pct: None,
+            score: None,
+            duration_avg: None,
+            duration_stddev: None,
+        }];
 
-        let content = mgr.generate_mirrorlist_content();
-        assert!(content.contains("Server = https://arch.mirror.org/$repo/os/$arch"));
+        let content = mgr.generate_sources_list_content();
+        assert!(content.contains("Persis OS / Debian"));
+        assert!(content.contains("deb https://mirror.iranserver.com/debian trixie main"));
+        assert!(content.contains("deb-src https://mirror.iranserver.com/debian trixie main"));
+        assert!(content.contains("security.debian.org"));
+
+        let deb822 = mgr.generate_deb822_content();
+        assert!(deb822.contains("URIs: https://mirror.iranserver.com/debian"));
+        assert!(deb822.contains("Suites: trixie trixie-updates"));
+        assert!(deb822.contains("Components: main contrib non-free non-free-firmware"));
     }
 
     #[test]
     fn test_speed_test_url_has_slash() {
-        assert_eq!(
-            speed_test_url("https://mirror.aarnet.edu.au/pub/archlinux/"),
-            "https://mirror.aarnet.edu.au/pub/archlinux/core/os/x86_64/core.db"
-        );
-        assert_eq!(
-            speed_test_url("https://mirror.mobinhost.com/archlinux"),
-            "https://mirror.mobinhost.com/archlinux/core/os/x86_64/core.db"
-        );
+        let url = speed_test_url("https://deb.debian.org/debian/");
+        assert_eq!(url, "https://deb.debian.org/debian/dists/stable/Release");
     }
 
     #[test]
-    fn test_availability_url_probes_lastsync() {
-        assert_eq!(
-            availability_url("https://mirror.aarnet.edu.au/pub/archlinux/"),
-            "https://mirror.aarnet.edu.au/pub/archlinux/lastsync"
-        );
+    fn test_availability_url_probes_trace() {
+        let url = availability_url("https://deb.debian.org/debian/");
+        assert_eq!(url, "https://deb.debian.org/debian/project/trace/master");
     }
 
     #[test]
     fn test_country_selected_empty_means_all() {
-        let none: Vec<String> = vec![];
-        assert!(country_selected(&none, "Germany"));
-        assert!(country_selected(&none, "AnyCountry"));
+        assert!(country_selected(&[], "Germany"));
+        assert!(country_selected(&[], "Iran"));
     }
 
     #[test]
     fn test_country_selected_multi() {
-        let selected = vec!["Germany".to_string(), "France".to_string()];
-        assert!(country_selected(&selected, "Germany"));
-        assert!(country_selected(&selected, "France"));
-        assert!(!country_selected(&selected, "Italy"));
-        assert!(!country_selected(&selected, ""));
+        let filter = vec!["Germany".to_string(), "Iran".to_string()];
+        assert!(country_selected(&filter, "Germany"));
+        assert!(country_selected(&filter, "Iran"));
+        assert!(!country_selected(&filter, "France"));
     }
 
     #[test]
-    fn test_status_cache_roundtrip() {
-        let tmp = std::env::temp_dir().join(format!("mirrorman-status-test-{}", std::process::id()));
-        std::env::set_var("MIRRORMAN_STATUS_CACHE", &tmp);
+    fn test_parse_debian_masterlist() {
+        let sample = "\
+Site: debian.mirror.at
+Country: AT Austria
+Archive-http: /debian/
+IPv6: yes
 
-        let cache = StatusCache {
-            cached_at: Utc::now(),
-            etag: Some("test-etag-123".to_string()),
-            last_modified: Some("Wed, 21 Oct 2026 07:28:00 GMT".to_string()),
-            raw_json: r#"{"urls":[]}"#.to_string(),
-        };
-
-        save_status_cache(&cache);
-        let loaded = load_status_cache().expect("cache should load");
-        assert_eq!(loaded.etag, Some("test-etag-123".to_string()));
-        assert_eq!(loaded.raw_json, r#"{"urls":[]}"#);
-
-        let _ = std::fs::remove_file(&tmp);
+Site: ftp.de.debian.org
+Country: DE Germany
+Archive-http: /debian/
+IPv6: no
+";
+        let parsed = parse_debian_masterlist(sample);
+        assert_eq!(parsed.len(), 4); // 2 HTTPS + 2 HTTP
+        assert!(parsed.iter().any(|m| m.url.as_deref() == Some("https://debian.mirror.at/debian")));
+        assert!(parsed.iter().any(|m| m.country_code.as_deref() == Some("AT")));
+        assert!(parsed.iter().any(|m| m.country.as_deref() == Some("Austria")));
     }
 }

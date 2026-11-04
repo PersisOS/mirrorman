@@ -1,0 +1,48 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --workspace
+
+override_dh_auto_install:
+	install -d debian/mirrorman/usr/bin
+	install -m 755 target/release/mirrorman debian/mirrorman/usr/bin/
+	install -m 755 target/release/mirrorman-helper debian/mirrorman/usr/bin/
+	install -m 755 target/release/mirrorman-dev debian/mirrorman/usr/bin/
+
+	install -d debian/mirrorman-cli/usr/bin
+	install -m 755 target/release/mirrorman-cli debian/mirrorman-cli/usr/bin/
+
+	install -d debian/mirrorman/usr/share/applications
+	install -m 644 assets/data/com.parchlinux.mirrorman.desktop debian/mirrorman/usr/share/applications/
+	install -m 644 assets/data/com.parchlinux.mirrorman.dev.desktop debian/mirrorman/usr/share/applications/
+
+	install -d debian/mirrorman/usr/share/icons/hicolor/scalable/apps
+	install -m 644 assets/data/com.parchlinux.mirrorman.svg debian/mirrorman/usr/share/icons/hicolor/scalable/apps/
+	install -m 644 assets/data/com.parchlinux.mirrorman.dev.svg debian/mirrorman/usr/share/icons/hicolor/scalable/apps/
+
+	install -d debian/mirrorman/usr/share/metainfo
+	install -m 644 assets/data/com.parchlinux.mirrorman.metainfo.xml debian/mirrorman/usr/share/metainfo/
+
+	install -d debian/mirrorman/usr/share/polkit-1/actions
+	install -m 644 assets/data/com.parchlinux.mirrorman.policy debian/mirrorman/usr/share/polkit-1/actions/
+
+	install -d debian/mirrorman/usr/share/dbus-1/system-services
+	install -m 644 assets/data/com.parchlinux.mirrorman.Helper.service debian/mirrorman/usr/share/dbus-1/system-services/
+
+	install -d debian/mirrorman/usr/share/dbus-1/system.d
+	install -m 644 assets/data/com.parchlinux.mirrorman-helper.conf debian/mirrorman/usr/share/dbus-1/system.d/
+
+	install -d debian/mirrorman/usr/lib/systemd/system
+	install -m 644 assets/data/mirrorman-helper.service debian/mirrorman/usr/lib/systemd/system/
+
+	install -d debian/mirrorman/usr/lib/systemd/user
+	install -m 644 assets/data/mirrorman-refresh.service debian/mirrorman/usr/lib/systemd/user/
+	install -m 644 assets/data/mirrorman-refresh.timer debian/mirrorman/usr/lib/systemd/user/
+
+	install -d debian/mirrorman-cli/usr/share/man/man1
+	install -m 644 assets/man/mirrorman-cli.1 debian/mirrorman-cli/usr/share/man/man1/

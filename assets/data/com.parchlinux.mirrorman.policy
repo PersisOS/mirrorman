@@ -4,8 +4,8 @@
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
   <action id="com.parchlinux.mirrorman.edit-mirrorlist">
-    <description>Edit Pacman mirrorlist</description>
-    <message>Authentication is required to modify the Pacman mirrorlist</message>
+    <description>Edit repository sources list</description>
+    <message>Authentication is required to modify repository sources</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -14,8 +14,8 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/mirrorman-helper</annotate>
   </action>
   <action id="com.parchlinux.mirrorman.edit-pacman-conf">
-    <description>Edit Pacman configuration</description>
-    <message>Authentication is required to modify the Pacman configuration</message>
+    <description>Edit package manager configuration</description>
+    <message>Authentication is required to modify package manager configuration</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -24,8 +24,8 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/mirrorman-helper</annotate>
   </action>
   <action id="com.parchlinux.mirrorman.sync-repos">
-    <description>Synchronize Pacman repositories</description>
-    <message>Authentication is required to synchronize Pacman repositories</message>
+    <description>Synchronize APT repositories</description>
+    <message>Authentication is required to synchronize APT repositories</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -44,8 +44,8 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/mirrorman-helper</annotate>
   </action>
   <action id="com.parchlinux.mirrorman.clean-cache">
-    <description>Clean pacman package cache</description>
-    <message>Authentication is required to clean the Pacman package cache</message>
+    <description>Clean package cache</description>
+    <message>Authentication is required to clean the package cache</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

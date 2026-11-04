@@ -1,0 +1,55 @@
+name: Build and Release Debian Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    name: Build .deb Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Debian build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            debhelper \
+            devscripts \
+            pkg-config \
+            gettext \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libdbus-1-dev \
+            libssl-dev
+
+      - name: Build Debian packages
+        run: |
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc -b
+          mkdir -p release-assets
+          cp ../*.deb release-assets/
+          cd release-assets
+          sha256sum *.deb > SHA256SUMS
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release-assets/*.deb
+            release-assets/SHA256SUMS
+          generate_release_notes: true
+          draft: false
+          prerelease: false

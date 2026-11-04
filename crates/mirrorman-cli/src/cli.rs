@@ -3,9 +3,9 @@ use clap::{Parser, Subcommand, CommandFactory};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Command-line interface for the Parch Mirror Manager.
+/// Command-line interface for the Persis OS Mirror Manager.
 #[derive(Parser, Debug)]
-#[command(name = "mirrorman-cli", version, about = "Pacman mirror and repository manager CLI")]
+#[command(name = "mirrorman-cli", version, about = "Debian mirror and repository manager CLI for Persis OS")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
@@ -13,7 +13,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Fetch the latest mirror status from the Arch Linux API
+    /// Fetch the latest Debian mirror status
     Refresh {
         /// Restrict to these countries (repeatable). Default: all countries
         #[arg(long, short = 'c')]
@@ -52,7 +52,7 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Save the mirrorlist to /etc/pacman.d/mirrorlist via the D-Bus helper
+    /// Save the mirrorlist to Debian sources via the D-Bus helper
     Save {
         /// Save even when no mirror is enabled
         #[arg(long)]
@@ -70,26 +70,26 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Show a summary of the current system mirrorlist
+    /// Show a summary of the current system repository sources
     Status,
-    /// Create a timestamped backup of the current mirrorlist
+    /// Create a timestamped backup of the current sources list
     Backup,
-    /// Clean pacman package cache (removes uninstalled + keeps N most recent)
+    /// Clean APT package cache
     Clean {
         /// Number of most recent versions to keep per package
         #[arg(long, short = 'n', default_value_t = 2)]
         keep: u32,
-        /// Dry run — show what would be removed without doing it
+        /// Dry run: show what would be removed without doing it
         #[arg(long)]
         dry_run: bool,
     },
-    /// Save mirrorlist and sync pacman repositories (equivalent to GUI Sync)
+    /// Save mirrorlist and sync APT repositories (equivalent to GUI Sync)
     Sync {
         /// Save even when no mirror is enabled
         #[arg(long)]
         force: bool,
     },
-    /// Show the diff between current and proposed mirrorlist
+    /// Show the diff between current and proposed sources list
     Diff,
     /// Test a single mirror URL for speed
     TestMirror {
@@ -347,9 +347,9 @@ pub fn execute(cli: Cli) -> Result<(), String> {
         }
         Command::Save { force } => {
             let mgr = load_cached()?;
-            println!("[+] Saving mirrorlist to /etc/pacman.d/mirrorlist...");
+            println!("[+] Saving sources to /etc/apt/sources.list...");
             do_save(&mgr, force)?;
-            println!("[+] Mirrorlist saved successfully!");
+            println!("[+] Sources saved successfully!");
             Ok(())
         }
         Command::Auto { force } => {
@@ -364,9 +364,9 @@ pub fn execute(cli: Cli) -> Result<(), String> {
             for m in &selected {
                 println!("    - {} ({})", m.url, m.country);
             }
-            println!("[+] Saving mirrorlist to /etc/pacman.d/mirrorlist...");
+            println!("[+] Saving sources to /etc/apt/sources.list...");
             do_save(&mgr, force)?;
-            println!("[+] Mirrorlist saved successfully!");
+            println!("[+] Sources saved successfully!");
             Ok(())
         }
         Command::List { json } => match load_cached() {
@@ -390,13 +390,21 @@ pub fn execute(cli: Cli) -> Result<(), String> {
         },
         Command::Status => {
             let current = MirrorManager::read_current_mirrorlist();
-            let servers = current
+            let sources_count = current
                 .lines()
-                .filter(|l| l.trim_start().starts_with("Server ="))
+                .filter(|l| {
+                    let t = l.trim_start();
+                    t.starts_with("deb ") || t.starts_with("URIs:") || t.starts_with("Server =")
+                })
                 .count();
-            println!("Mirrorlist status (/etc/pacman.d/mirrorlist):");
+            let active_file = if MirrorManager::is_deb822_primary() {
+                mirrorman_core::mirror_manager::SOURCES_DEB822_FILE
+            } else {
+                mirrorman_core::mirror_manager::SOURCES_LIST_FILE
+            };
+            println!("Repository sources status ({active_file}):");
             println!("  File present:        {}", !current.is_empty());
-            println!("  Server entries:      {servers}");
+            println!("  Configured entries:  {sources_count}");
             Ok(())
         }
         Command::Backup => {
@@ -404,42 +412,28 @@ pub fn execute(cli: Cli) -> Result<(), String> {
             println!("[+] Backup created: {backup_path}");
             Ok(())
         }
-        Command::Clean { keep, dry_run } => {
-            let mut cmd = std::process::Command::new("paccache");
-            cmd.args(["-r", "-k", &keep.to_string()]);
+        Command::Clean { keep: _, dry_run } => {
             if dry_run {
-                cmd.arg("--dryrun");
+                println!("[+] Dry run: would clean APT package cache via 'apt-get clean'");
+                return Ok(());
             }
-            let output = match cmd.output() {
-                Ok(o) => o,
-                Err(e) => {
-                    return Err(format!(
-                        "Failed to run paccache ({e}). Please ensure 'pacman-contrib' is installed."
-                    ));
+            println!("[+] Cleaning APT package cache...");
+            match mirrorman_core::sync_manager::SyncManager::clean_cache() {
+                Ok(out) => {
+                    if !out.is_empty() {
+                        print!("{out}");
+                    }
+                    println!("[+] APT package cache cleaned successfully.");
+                    Ok(())
                 }
-            };
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if !stdout.is_empty() {
-                print!("{stdout}");
-            }
-            if !stderr.is_empty() {
-                eprint!("{stderr}");
-            }
-            if output.status.success() {
-                if !dry_run {
-                    println!("[+] Cache cleaned (keeping {keep} versions per package).");
-                }
-                Ok(())
-            } else {
-                Err(format!("paccache exited with status {}", output.status))
+                Err(e) => Err(format!("Failed to clean cache: {e}")),
             }
         }
         Command::Sync { force } => {
-            println!("[+] Saving mirrorlist...");
+            println!("[+] Saving repository sources...");
             let mgr = load_cached()?;
             do_save(&mgr, force)?;
-            println!("[+] Syncing repositories...");
+            println!("[+] Syncing APT repositories...");
             let out = mirrorman_core::sync_manager::SyncManager::sync_repositories()?;
             if !out.is_empty() {
                 println!("{out}");
@@ -454,12 +448,19 @@ pub fn execute(cli: Cli) -> Result<(), String> {
             };
             let current = MirrorManager::read_current_mirrorlist();
             if current == proposed {
-                println!("[+] No differences — mirrorlist is up to date.");
+                println!("[+] No differences: repository sources are up to date.");
                 return Ok(());
             }
             use std::io::Write;
+            let active_file = if MirrorManager::is_deb822_primary() {
+                mirrorman_core::mirror_manager::SOURCES_DEB822_FILE
+            } else if std::path::Path::new(mirrorman_core::mirror_manager::SOURCES_LIST_FILE).exists() {
+                mirrorman_core::mirror_manager::SOURCES_LIST_FILE
+            } else {
+                "/etc/pacman.d/mirrorlist"
+            };
             let mut diff_cmd = std::process::Command::new("diff")
-                .args(["--color=auto", "-u", "/etc/pacman.d/mirrorlist", "/dev/stdin"])
+                .args(["--color=auto", "-u", active_file, "/dev/stdin"])
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -471,7 +472,7 @@ pub fn execute(cli: Cli) -> Result<(), String> {
             let output = diff_cmd.wait_with_output().map_err(|e| e.to_string())?;
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.is_empty() {
-                println!("[+] No differences — mirrorlist is up to date.");
+                println!("[+] No differences: repository sources are up to date.");
             } else {
                 print!("{stdout}");
             }

@@ -1,0 +1,32 @@
+Source: mirrorman
+Section: admin
+Priority: optional
+Maintainer: Persis OS Team <info@persisos.org>
+Build-Depends: debhelper-compat (= 13),
+ cargo,
+ rustc,
+ libgtk-4-dev,
+ libadwaita-1-dev,
+ libdbus-1-dev,
+ libssl-dev,
+ pkg-config,
+ gettext
+Standards-Version: 4.6.2
+Homepage: https://github.com/PersisOS/mirrorman
+
+Package: mirrorman
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, pkexec, dbus, apt
+Recommends: mirrorman-cli
+Description: Debian mirror and repository manager
+ MirrorMan is a GTK4 / Libadwaita mirror and repository management application
+ for Debian GNU/Linux and Persis OS. It tests Debian mirrors for latency and
+ speed, provides Iran domestic mirrors, edits APT configuration, and manages
+ standard and third-party repositories.
+
+Package: mirrorman-cli
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, dbus, apt
+Description: Debian mirror and repository manager CLI
+ Headless command-line interface for MirrorMan, allowing automatic speed
+ benchmarking, ranking, and synchronization of Debian mirrors and repositories.

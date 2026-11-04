@@ -1,24 +1,24 @@
 .TH MIRRORMAN\-CLI 1 "2026" "mirrorman 0.6.0" "User Commands"
 .SH NAME
-mirrorman\-cli \- Pacman mirror and repository manager command line interface
+mirrorman\-cli \- Debian mirror and repository manager command line interface
 .SH SYNOPSIS
 .B mirrorman\-cli
 .RI [ command ]
 .RI [ options ]
 .SH DESCRIPTION
 .B mirrorman\-cli
-is the command line interface of the Parch Mirror Manager.
-It fetches mirror status data from the Arch Linux mirror status API,
+is the command line interface of the Parch Mirror Manager for Debian GNU/Linux.
+It fetches mirror status data from the Debian mirrors masterlist,
 ranks mirrors by measured response time, selects the best combination
-of mirrors across countries, and writes the resulting mirrorlist to
+of mirrors across countries, and writes the resulting sources configuration to
 the system.
 .B mirrorman\-cli
 requires a working system D\-Bus and the
 .B mirrorman\-helper
-service to save the mirrorlist.
+service to save the repository sources.
 .SH COMMANDS
 .SS refresh
-Fetch the latest mirror status from the Arch Linux mirror status API and
+Fetch the latest Debian mirror status and
 store the result in the local cache. If the fetch succeeds the cached
 data is printed as a table unless
 .B \-\-json

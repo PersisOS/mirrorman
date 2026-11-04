@@ -26,7 +26,11 @@ impl MirrorTemplate {
         let mut dir = config_base;
         dir.push("mirrorman");
         dir.push("templates");
-        let _ = fs::create_dir_all(&dir);
+        if fs::create_dir_all(&dir).is_err() {
+            let fallback = PathBuf::from("/tmp/mirrorman/templates");
+            let _ = fs::create_dir_all(&fallback);
+            return fallback;
+        }
         dir
     }
 

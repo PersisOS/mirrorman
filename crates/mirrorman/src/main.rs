@@ -226,7 +226,7 @@ fn build_ui(app: &adw::Application) {
 
     let settings_btn = gtk4::Button::new();
     settings_btn.set_icon_name("preferences-system-symbolic");
-    settings_btn.set_tooltip_text(Some(tr!("Pacman Settings")));
+    settings_btn.set_tooltip_text(Some(tr!("APT Settings")));
     header.pack_end(&settings_btn);
 
     let about_btn = gtk4::Button::new();
@@ -646,9 +646,18 @@ fn build_ui(app: &adw::Application) {
             row.set_activatable_widget(Some(&sw));
             repo_list.append(&row);
         }
-        for (i, name) in config.third_party_repos.iter().enumerate() {
+        for name in &config.third_party_repos {
             let row = adw::ActionRow::new();
-            row.set_title([tr!("Chaotic-AUR"), tr!("BlackArch"), tr!("ArchLinuxCN")][i]);
+            let title = match name.as_str() {
+                "trixie-backports" => tr!("Debian Backports"),
+                "persis-extra" => tr!("Persis OS Extra"),
+                "liquorix" => tr!("Liquorix Kernel"),
+                "chaotic-aur" => tr!("Chaotic-AUR"),
+                "blackarch" => tr!("BlackArch"),
+                "archlinuxcn" => tr!("ArchLinuxCN"),
+                _ => name.as_str(),
+            };
+            row.set_title(title);
             let sw = gtk4::Switch::new();
             sw.set_active(*config.repositories.get(name).unwrap_or(&false));
             sw.set_valign(gtk4::Align::Center);
@@ -1312,7 +1321,14 @@ fn build_ui(app: &adw::Application) {
             d.add_response("update", tr!("Update"));
             d.set_response_appearance("update", ResponseAppearance::Destructive);
             d.connect_response(None, move |_, resp| {
-                if resp == "update" { utils::open_terminal_with_command("pkexec pacman -Syu"); }
+                if resp == "update" {
+                    let update_cmd = if std::path::Path::new("/usr/bin/apt").exists() || std::path::Path::new("/usr/bin/apt-get").exists() {
+                        "pkexec apt update && pkexec apt upgrade"
+                    } else {
+                        "pkexec pacman -Syu"
+                    };
+                    utils::open_terminal_with_command(update_cmd);
+                }
             });
             d.present(Some(&win));
         });
@@ -1368,7 +1384,7 @@ fn build_ui(app: &adw::Application) {
         backup_btn.connect_clicked(move |_| {
             let dialog = adw::AlertDialog::new(
                 Some(tr!("Backing Up")),
-                Some(tr!("Creating timestamped backup of mirrorlist...")),
+                Some(tr!("Creating timestamped backup of sources list...")),
             );
             let progress = gtk4::ProgressBar::new();
             progress.set_pulse_step(0.1);
@@ -1385,7 +1401,7 @@ fn build_ui(app: &adw::Application) {
                     if let Some(ref msg) = *result_check.lock().unwrap_or_else(|e| e.into_inner()) {
                         dialog.close();
                         if msg == "ok" {
-                            inform(&win_c, tr!("Success"), tr!("Mirrorlist backup created successfully"));
+                            inform(&win_c, tr!("Success"), tr!("Sources list backup created successfully"));
                         } else {
                             alert(&win_c, tr!("Backup Failed"), msg);
                         }
@@ -1421,7 +1437,7 @@ fn build_ui(app: &adw::Application) {
             let name_entry = gtk4::Entry::new();
             name_entry.set_placeholder_text(Some(tr!("Repository name (e.g. myrepo)")));
             let url_entry = gtk4::Entry::new();
-            url_entry.set_placeholder_text(Some(tr!("Server URL (e.g. https://mirror.example.com/archlinux/$repo/os/$arch)")));
+            url_entry.set_placeholder_text(Some(tr!("Repository URL (e.g. https://deb.debian.org/debian)")));
 
             let siglevel_label = gtk4::Label::new(Some(tr!("SigLevel")));
             siglevel_label.set_halign(gtk4::Align::Start);
@@ -1788,7 +1804,12 @@ fn show_diff_dialog<F: Fn() + 'static>(parent: &adw::ApplicationWindow, current:
     left_box.set_margin_bottom(8);
     left_box.set_margin_start(8);
     left_box.set_margin_end(8);
-    let left_label = gtk4::Label::new(Some(tr!("Current Mirrorlist (/etc/pacman.d/mirrorlist)")));
+    let sources_label = if mirrorman_core::mirror_manager::MirrorManager::is_deb822_primary() {
+        tr!("Current Sources (/etc/apt/sources.list.d/debian.sources)")
+    } else {
+        tr!("Current Sources (/etc/apt/sources.list)")
+    };
+    let left_label = gtk4::Label::new(Some(sources_label));
     left_label.add_css_class("heading");
     left_box.append(&left_label);
 
@@ -1807,7 +1828,7 @@ fn show_diff_dialog<F: Fn() + 'static>(parent: &adw::ApplicationWindow, current:
     right_box.set_margin_bottom(8);
     right_box.set_margin_start(8);
     right_box.set_margin_end(8);
-    let right_label = gtk4::Label::new(Some(tr!("Proposed Mirrorlist")));
+    let right_label = gtk4::Label::new(Some(tr!("Proposed Sources")));
     right_label.add_css_class("heading");
     right_box.append(&right_label);
 

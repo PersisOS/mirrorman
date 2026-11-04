@@ -1,0 +1,11 @@
+mirrorman (0.6.0-1) unstable; urgency=medium
+
+  * Fork and port for Persis OS with full Debian GNU/Linux compatibility.
+  * Switch package management backend from Pacman to APT and dpkg.
+  * Implement Debian mirror fetching from official masterlist with curated fallbacks.
+  * Support both traditional /etc/apt/sources.list and modern DEB822 debian.sources.
+  * Add APT configuration management for pipeline depth, retries, and recommendations.
+  * Add dpkg log parsing for transaction history viewer.
+  * Add Debian packaging definitions.
+
+ -- Sohrab Behdani <behdanisohrab@gmail.com>  Wed, 04 Nov 2026 09:00:00 +0330

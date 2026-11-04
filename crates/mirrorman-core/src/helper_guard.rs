@@ -1,116 +1,87 @@
-//! Whitelist validation for privileged helper operations.
+//! Whitelist validation for privileged helper operations in Debian GNU/Linux.
 //!
 //! Shared by the root `mirrorman-helper` D-Bus service and the unprivileged
 //! client so both sides enforce the same allow-lists. Nothing here runs any
 //! command; it only decides whether a proposed invocation is safe enough to
 //! forward to a root context.
 
-/// Pacman operations the helper may perform. The first argument must be one of
-/// these combined flags; anything after it is validated per-argument.
-const ALLOWED_PACMAN_OPS: &[&str] = &["-S", "-Sy", "-Syy", "-Su", "-Syu", "-Syyu", "-Sc", "-U"];
+/// Allowed APT subcommands and flags.
+const ALLOWED_APT_OPS: &[&str] = &[
+    "update", "clean", "autoclean", "autoremove", "install", "check",
+];
 
-/// Additional flags allowed after the operation. Crucially absent: `--root`,
-/// `--config`, `--dbpath`, `--cachedir`, `--hookdir`, `--logfile`, `-r`, `-b`.
-const ALLOWED_PACMAN_FLAGS: &[&str] = &["--noconfirm", "--needed", "--refresh", "--clean"];
+const ALLOWED_APT_FLAGS: &[&str] = &[
+    "-y", "--assume-yes", "-q", "--quiet", "--dry-run", "-f", "--fix-broken",
+    "--allow-releaseinfo-change",
+];
 
-/// Validate the argument vector for a `pacman` invocation.
-pub fn validate_pacman_args(args: &[String]) -> Result<(), String> {
+/// Validates arguments passed to apt / apt-get.
+pub fn validate_apt_args(args: &[String]) -> Result<(), String> {
     let Some(first) = args.first() else {
-        return Err("pacman requires at least one operation flag".to_string());
+        return Err("apt requires at least one operation flag".to_string());
     };
-    if !ALLOWED_PACMAN_OPS.contains(&first.as_str()) {
-        return Err(format!("pacman operation '{first}' is not allowed"));
+    if !ALLOWED_APT_OPS.contains(&first.as_str()) {
+        return Err(format!("apt operation '{first}' is not allowed"));
     }
     for a in &args[1..] {
         if a.starts_with('-') {
-            if !ALLOWED_PACMAN_FLAGS.contains(&a.as_str()) {
-                return Err(format!("pacman flag '{a}' is not allowed"));
+            if !ALLOWED_APT_FLAGS.contains(&a.as_str()) {
+                return Err(format!("apt flag '{a}' is not allowed"));
             }
             continue;
         }
-        if !is_safe_pacman_value(a) {
-            return Err(format!("pacman argument '{a}' is not allowed"));
+        if !is_safe_package_value(a) {
+            return Err(format!("apt argument '{a}' is not allowed"));
         }
     }
     Ok(())
 }
 
-/// Package names, HTTP(S) URLs and absolute file paths are the only acceptable
-/// "value" arguments to whitelisted pacman operations.
-fn is_safe_pacman_value(s: &str) -> bool {
+/// Package spec or safe path.
+fn is_safe_package_value(s: &str) -> bool {
     if s.is_empty() || s.len() >= 2048 {
         return false;
-    }
-    if s.starts_with("http://") || s.starts_with("https://") {
-        return !s.chars().any(char::is_whitespace);
     }
     if s.starts_with('/') {
         return !s.contains("..");
     }
-    // package spec: alphanumerics plus common separators (`pkg>=1.0` epoch
-    // colons, provider `@`, repo `:`).
-    s.chars()
-        .all(|c| c.is_ascii_alphanumeric() || "-._+@:=<>".contains(c))
+    s.chars().all(|c| c.is_ascii_alphanumeric() || "-._+:=~".contains(c))
 }
 
-/// The `cp` command is only allowed to back up the mirrorlist into
-/// `/etc/pacman.d/`.
+const ALLOWED_CP_SOURCES: &[&str] = &[
+    "/etc/apt/sources.list",
+    "/etc/apt/sources.list.d/debian.sources",
+    "/etc/apt/sources.list.d/mirrors.list",
+    "/etc/apt/apt.conf.d/99mirrorman.conf",
+];
+
+/// The `cp` command is allowed to back up and restore APT configuration files.
 pub fn validate_cp_args(args: &[String]) -> Result<(), String> {
     if args.len() != 2 {
         return Err("cp requires exactly two arguments".to_string());
     }
-    if args[0] != "/etc/pacman.d/mirrorlist" {
-        return Err("cp source must be /etc/pacman.d/mirrorlist".to_string());
+    let src = &args[0];
+    if !ALLOWED_CP_SOURCES.contains(&src.as_str()) {
+        return Err(format!("cp source '{src}' is not allowed"));
     }
     let dest = &args[1];
-    if !dest.starts_with("/etc/pacman.d/") || dest.contains("..") || dest.len() >= 2048 {
-        return Err("cp destination must be a path under /etc/pacman.d/".to_string());
+    let is_valid_dest = dest.starts_with("/etc/apt/")
+        && !dest.contains("..")
+        && dest.len() < 2048;
+
+    if !is_valid_dest {
+        return Err("cp destination must be a valid path under /etc/apt/".to_string());
     }
     Ok(())
 }
 
-fn is_hex_key(s: &str) -> bool {
-    (s.len() >= 16 && s.len() <= 64) && s.chars().all(|c| c.is_ascii_hexdigit())
-}
-
-/// `pacman-key` is limited to importing/signing a single PGP key id, with an
-/// optional `--keyserver` host.
-pub fn validate_pacman_key_args(args: &[String]) -> Result<(), String> {
-    if args.len() == 2 && (args[0] == "--recv-key" || args[0] == "--lsign-key") {
-        if !is_hex_key(&args[1]) {
-            return Err("invalid key id".to_string());
-        }
-        return Ok(());
-    }
-    if args.len() == 4 && args[0] == "--recv-key" && args[2] == "--keyserver" {
-        if !is_hex_key(&args[1]) {
-            return Err("invalid key id".to_string());
-        }
-        if !args[3]
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == ':')
-        {
-            return Err("invalid keyserver".to_string());
-        }
-        return Ok(());
-    }
-    Err("unsupported pacman-key invocation".to_string())
-}
-
-/// Validate a `RunCommand` request. Only fixed, low-risk invocations are
-/// allowed; shell interpreters and network tools are never permitted here.
+/// Validate a `RunCommand` request.
 pub fn validate_run_command(command: &str, args: &[String]) -> Result<(), String> {
     match command {
         "cp" => validate_cp_args(args),
-        "pacman-key" => validate_pacman_key_args(args),
         _ => Err(format!("command '{command}' is not whitelisted")),
     }
 }
-
-/// The exact, pinned BlackArch bootstrap script. It downloads `strap.sh`,
-/// verifies its SHA256, and runs it — all with fixed arguments, so it is safe to
-/// allow as a dedicated operation rather than as arbitrary `bash -c`.
-pub const BLACKARCH_STRAP_SCRIPT: &str = "cd /tmp && curl -O https://blackarch.org/strap.sh && echo '58ce783cf584d9000d42f78b51780e0b58fb2d1671abf9bca1f2a486d5368dd4  strap.sh' | sha256sum -c && chmod +x strap.sh && ./strap.sh && rm -f strap.sh";
 
 #[cfg(test)]
 mod tests {
@@ -121,85 +92,43 @@ mod tests {
     }
 
     #[test]
-    fn pacman_sync_allowed() {
-        assert!(validate_pacman_args(&v(&["-Syy", "--noconfirm"])).is_ok());
-        assert!(validate_pacman_args(&v(&["-Syu", "--noconfirm"])).is_ok());
+    fn apt_update_allowed() {
+        assert!(validate_apt_args(&v(&["update"])).is_ok());
+        assert!(validate_apt_args(&v(&["clean"])).is_ok());
+        assert!(validate_apt_args(&v(&["autoclean"])).is_ok());
+        assert!(validate_apt_args(&v(&["autoremove", "-y"])).is_ok());
     }
 
     #[test]
-    fn pacman_install_allowed() {
-        assert!(validate_pacman_args(&v(&["-S", "archlinuxcn-keyring", "--noconfirm"])).is_ok());
-        assert!(validate_pacman_args(&v(&["-S", "linux", "linux-headers"])).is_ok());
-        assert!(validate_pacman_args(&v(&["-S", "pkg>=1.0", "--needed"])).is_ok());
+    fn apt_dangerous_rejected() {
+        assert!(validate_apt_args(&v(&[])).is_err());
+        assert!(validate_apt_args(&v(&["purge", "*"])).is_err());
+        assert!(validate_apt_args(&v(&["install", "curl; rm -rf /"])).is_err());
     }
 
     #[test]
-    fn pacman_url_install_allowed() {
-        assert!(validate_pacman_args(&v(&[
-            "-U",
-            "--noconfirm",
-            "https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst",
-        ]))
-        .is_ok());
-    }
-
-    #[test]
-    fn pacman_dangerous_rejected() {
-        assert!(validate_pacman_args(&v(&["--root", "/tmp"])).is_err());
-        assert!(validate_pacman_args(&v(&["-Syy", "--config", "/tmp/x.conf"])).is_err());
-        assert!(validate_pacman_args(&v(&["-Syy", "--dbpath", "/tmp"])).is_err());
-        assert!(validate_pacman_args(&v(&["-r", "/tmp"])).is_err());
-        assert!(validate_pacman_args(&v(&["-S", "foo; rm -rf /"])).is_err());
-        assert!(validate_pacman_args(&v(&["-S", "--noconfirm", "--root", "/"])).is_err());
-        assert!(validate_pacman_args(&v(&[])).is_err());
-    }
-
-    #[test]
-    fn cp_backup_allowed() {
+    fn cp_apt_sources_allowed() {
         assert!(validate_cp_args(&v(&[
-            "/etc/pacman.d/mirrorlist",
-            "/etc/pacman.d/mirrorlist.backup.20260724_101010",
-        ]))
-        .is_ok());
+            "/etc/apt/sources.list",
+            "/etc/apt/sources.list.backup.20261104",
+        ])).is_ok());
+        assert!(validate_cp_args(&v(&[
+            "/etc/apt/sources.list.d/debian.sources",
+            "/etc/apt/sources.list.d/debian.sources.backup",
+        ])).is_ok());
     }
 
     #[test]
     fn cp_abuse_rejected() {
-        assert!(validate_cp_args(&v(&["/etc/shadow", "/tmp/x"])).is_err());
-        assert!(validate_cp_args(&v(&["/etc/pacman.d/mirrorlist", "/tmp/x"])).is_err());
-        assert!(validate_cp_args(&v(&["/etc/pacman.d/mirrorlist", "/etc/pacman.d/../shadow"])).is_err());
-        assert!(validate_cp_args(&v(&["/etc/pacman.d/mirrorlist"])).is_err());
-    }
-
-    #[test]
-    fn pacman_key_allowed() {
-        assert!(validate_pacman_key_args(&v(&[
-            "--recv-key",
-            "4D41FD3D9E72E7966A573093E8CA6AEB220E236C",
-            "--keyserver",
-            "keyserver.ubuntu.com",
-        ]))
-        .is_ok());
-        assert!(validate_pacman_key_args(&v(&[
-            "--lsign-key",
-            "4D41FD3D9E72E7966A573093E8CA6AEB220E236C",
-        ]))
-        .is_ok());
-    }
-
-    #[test]
-    fn pacman_key_abuse_rejected() {
-        assert!(validate_pacman_key_args(&v(&["--recv-key", "bash"])).is_err());
-        assert!(validate_pacman_key_args(&v(&["--recv-key", "AB", "--keyserver", "evil.example"])).is_err());
-        assert!(validate_pacman_key_args(&v(&["--lsign-key", "--init"])).is_err());
+        assert!(validate_cp_args(&v(&["/etc/apt/sources.list", "/tmp/passwd"])).is_err());
+        assert!(validate_cp_args(&v(&["/etc/apt/sources.list", "/etc/apt/../shadow"])).is_err());
+        assert!(validate_cp_args(&v(&["/etc/shadow", "/etc/apt/shadow.bak"])).is_err());
     }
 
     #[test]
     fn run_command_whitelist() {
-        assert!(validate_run_command("cp", &v(&["/etc/pacman.d/mirrorlist", "/etc/pacman.d/mirrorlist.bak"])).is_ok());
-        assert!(validate_run_command("bash", &v(&["-c", "rm -rf /"])).is_err());
-        assert!(validate_run_command("curl", &v(&["-O", "https://blackarch.org/strap.sh"])).is_err());
-        assert!(validate_run_command("pacman", &v(&["-Syy"])).is_err());
-        assert!(validate_run_command("systemctl", &v(&["poweroff"])).is_err());
+        assert!(validate_run_command("cp", &v(&["/etc/apt/sources.list", "/etc/apt/sources.list.bak"])).is_ok());
+        assert!(validate_run_command("apt", &v(&["update"])).is_err());
+        assert!(validate_run_command("rm", &v(&["-rf", "/"])).is_err());
     }
 }
