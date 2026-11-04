@@ -37,7 +37,7 @@ jobs:
       - name: Build Debian packages
         run: |
           chmod +x debian/rules
-          dpkg-buildpackage -us -uc -b
+          dpkg-buildpackage -us -uc -b -d
           mkdir -p release-assets
           cp ../*.deb release-assets/
           cd release-assets

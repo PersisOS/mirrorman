@@ -15,7 +15,7 @@ echo "[*] Building MirrorMan v${VERSION} for Debian (${ARCH})..."
 # Check if dpkg-buildpackage is available
 if command -v dpkg-buildpackage >/dev/null 2>&1; then
     echo "[*] Using dpkg-buildpackage..."
-    dpkg-buildpackage -us -uc -b
+    dpkg-buildpackage -us -uc -b -d
     mkdir -p "${OUTPUT_DIR}"
     mv ../mirrorman*.deb ../mirrorman*.buildinfo ../mirrorman*.changes "${OUTPUT_DIR}/" 2>/dev/null || true
     echo "[+] Packages generated in ${OUTPUT_DIR}/"
