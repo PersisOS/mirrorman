@@ -774,6 +774,17 @@ fn build_ui(app: &adw::Application) {
                         }
                         set_loading(&l_spinner, &l_label, &l_refresh, &l_hrefresh, &l_rank, &l_sync, &l_clean, &l_avail, &l_http, &l_https, &l_ipv4, &l_ipv6, &l_status, &l_country_row, false, "");
                     }
+                    "avail_ok" => {
+                        let mgr = mm_arc.lock().unwrap_or_else(|e| e.into_inner());
+                        if let Some(list) = list_holder.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                            refresh_list_ui(list, &mgr.mirrors, &search_filter_h.borrow());
+                        }
+                        set_loading(&l_spinner, &l_label, &l_refresh, &l_hrefresh, &l_rank, &l_sync, &l_clean, &l_avail, &l_http, &l_https, &l_ipv4, &l_ipv6, &l_status, &l_country_row, false, "");
+                        if let Some((avail_s, total_s)) = rest.split_once(':') {
+                            inform(&win, tr!("Availability Check Complete"),
+                                &format!("{}: {} / {}", tr!("Available mirrors"), avail_s, total_s));
+                        }
+                    }
                     "rank_err" => {
                         alert(&win, tr!("Ranking Error"), rest);
                         set_loading(&l_spinner, &l_label, &l_refresh, &l_hrefresh, &l_rank, &l_sync, &l_clean, &l_avail, &l_http, &l_https, &l_ipv4, &l_ipv6, &l_status, &l_country_row, false, "");
@@ -992,11 +1003,13 @@ fn build_ui(app: &adw::Application) {
             std::thread::spawn(move || {
                 let mut mirrors = old_mirrors;
                 MirrorManager::check_mirror_availability(&mut mirrors, 50);
+                let avail_count = mirrors.iter().filter(|m| m.enabled).count();
+                let total_count = mirrors.len();
                 {
                     let mut mgr = mm.lock().unwrap_or_else(|e| e.into_inner());
                     mgr.mirrors = mirrors;
                 }
-                let _ = tx.send("rank_ok:".to_string());
+                let _ = tx.send(format!("avail_ok:{}:{}", avail_count, total_count));
             });
         });
     }
@@ -1019,7 +1032,7 @@ fn build_ui(app: &adw::Application) {
             l_sort_dropdown.set_sensitive(true);
             l_rank.set_sensitive(true);
             inform(&win, tr!("Iran Blackout Added"),
-                &format!("{}\n\n{} {}", tr!("Added 3 Iranian mirrors."), tr!("Total mirrors:"), count));
+                &format!("{}\n\n{} {}", tr!("Iranian mirrors added."), tr!("Total mirrors:"), count));
         });
     }
 

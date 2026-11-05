@@ -43,6 +43,15 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Check mirror availability and update enabled states
+    Check {
+        /// Number of concurrent availability checks
+        #[arg(long, default_value_t = 50)]
+        workers: usize,
+        /// Print the checked mirrors as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Auto-select the best mirrors across countries and enable them
     BestSetup {
         /// Maximum number of countries/mirrors to select
@@ -248,6 +257,14 @@ pub fn do_test(mgr: &mut MirrorManager, workers: usize) -> Result<(), String> {
     save_cache(mgr)
 }
 
+pub fn do_check(mgr: &mut MirrorManager, workers: usize) -> Result<(), String> {
+    if mgr.mirrors.is_empty() {
+        return Err("No mirrors to check. Run 'mirrorman-cli refresh' first.".to_string());
+    }
+    MirrorManager::check_mirror_availability(&mut mgr.mirrors, workers);
+    save_cache(mgr)
+}
+
 pub fn do_best_setup(mgr: &mut MirrorManager, count: usize) -> Result<Vec<Mirror>, String> {
     if mgr.mirrors.is_empty() {
         return Err("No mirrors available. Run 'mirrorman-cli refresh' first.".to_string());
@@ -324,6 +341,22 @@ pub fn execute(cli: Cli) -> Result<(), String> {
                 );
             } else {
                 println!("[+] Ranked by speed:");
+                print_mirror_table(&mgr.mirrors);
+            }
+            Ok(())
+        }
+        Command::Check { workers, json } => {
+            let mut mgr = load_cached()?;
+            println!("[+] Checking availability of {} mirrors with {workers} workers...", mgr.mirrors.len());
+            do_check(&mut mgr, workers)?;
+            let avail = mgr.mirrors.iter().filter(|m| m.enabled).count();
+            println!("[+] Availability check complete: {}/{} mirrors available.", avail, mgr.mirrors.len());
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&mgr.mirrors).map_err(|e| e.to_string())?
+                );
+            } else {
                 print_mirror_table(&mgr.mirrors);
             }
             Ok(())
@@ -710,6 +743,13 @@ mod tests {
         mgr.mirrors = vec![sample_mirror(false)];
         let err = do_save(&mgr, false).unwrap_err();
         assert!(err.contains("No enabled mirrors"));
+    }
+
+    #[test]
+    fn test_check_empty_fails() {
+        let mut mgr = MirrorManager::new();
+        let err = do_check(&mut mgr, 10).unwrap_err();
+        assert!(err.contains("No mirrors to check"));
     }
 
     #[test]

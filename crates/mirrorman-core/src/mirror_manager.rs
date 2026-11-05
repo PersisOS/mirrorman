@@ -66,7 +66,8 @@ pub struct ApiMirror {
     pub duration_stddev: Option<f64>,
 }
 
-const DEBIAN_MASTERLIST_URL: &str = "https://salsa.debian.org/webmaster-team/webwml/-/raw/master/english/mirror/Mirrors.masterlist";
+const DEBIAN_MASTERLIST_URL: &str = "https://salsa.debian.org/mirror-team/masterlist/-/raw/master/Mirrors.masterlist.in";
+const DEBIAN_MASTERLIST_FALLBACK_URL: &str = "https://salsa.debian.org/webmaster-team/webwml/-/raw/master/english/mirror/Mirrors.masterlist";
 const USER_AGENT: &str = "mirrorman/0.6.0 (Persis OS)";
 
 pub const SOURCES_LIST_FILE: &str = "/etc/apt/sources.list";
@@ -81,10 +82,9 @@ pub const MIRRORLIST_BACKUP: &str = SOURCES_BACKUP_FILE;
 pub const IRANIAN_MIRRORS: &[&str] = &[
     "https://mirror.iranserver.com/debian",
     "https://mirror.mobinhost.com/debian",
-    "https://repo.iut.ac.ir/repo/debian",
-    "https://mirror.arvancloud.ir/debian",
+    "https://repo.iut.ac.ir/debian",
     "https://mirror.rasanegar.com/debian",
-    "https://mirror.yektanet.com/debian",
+    "https://mirror.aminidc.com/debian",
 ];
 
 /// Curated fallback mirrors for Debian GNU/Linux across major geographic regions.
@@ -93,38 +93,37 @@ const CURATED_DEBIAN_MIRRORS: &[(&str, &str, &str, &str, bool, bool)] = &[
     ("http://deb.debian.org/debian", "Worldwide", "WW", "http", true, true),
     ("https://mirror.iranserver.com/debian", "Iran", "IR", "https", true, false),
     ("https://mirror.mobinhost.com/debian", "Iran", "IR", "https", true, false),
-    ("https://repo.iut.ac.ir/repo/debian", "Iran", "IR", "https", true, false),
-    ("https://mirror.arvancloud.ir/debian", "Iran", "IR", "https", true, false),
+    ("https://repo.iut.ac.ir/debian", "Iran", "IR", "https", true, false),
     ("https://mirror.rasanegar.com/debian", "Iran", "IR", "https", true, false),
-    ("https://mirror.yektanet.com/debian", "Iran", "IR", "https", true, false),
-    ("https://ftp.de.debian.org/debian", "Germany", "DE", "https", true, true),
+    ("https://mirror.aminidc.com/debian", "Iran", "IR", "https", true, false),
+    ("http://ftp.de.debian.org/debian", "Germany", "DE", "http", true, true),
     ("https://debian.charite.de/debian", "Germany", "DE", "https", true, true),
     ("https://mirror.leaseweb.com/debian", "Germany", "DE", "https", true, true),
-    ("https://ftp.fr.debian.org/debian", "France", "FR", "https", true, true),
+    ("http://ftp.fr.debian.org/debian", "France", "FR", "http", true, true),
     ("https://debian.polytechnique.fr/debian", "France", "FR", "https", true, true),
-    ("https://ftp.nl.debian.org/debian", "Netherlands", "NL", "https", true, true),
+    ("http://ftp.nl.debian.org/debian", "Netherlands", "NL", "http", true, true),
     ("https://debian.snt.utwente.nl/debian", "Netherlands", "NL", "https", true, true),
-    ("https://ftp.uk.debian.org/debian", "United Kingdom", "GB", "https", true, true),
+    ("http://ftp.uk.debian.org/debian", "United Kingdom", "GB", "http", true, true),
     ("https://mirrors.ukfast.co.uk/sites/debian", "United Kingdom", "GB", "https", true, false),
-    ("https://ftp.us.debian.org/debian", "United States", "US", "https", true, true),
+    ("http://ftp.us.debian.org/debian", "United States", "US", "http", true, true),
     ("https://mirrors.kernel.org/debian", "United States", "US", "https", true, true),
     ("https://mirror.math.princeton.edu/pub/debian", "United States", "US", "https", true, true),
     ("https://mirror.csclub.uwaterloo.ca/debian", "Canada", "CA", "https", true, true),
-    ("https://ftp.jp.debian.org/debian", "Japan", "JP", "https", true, true),
-    ("https://ftp.kr.debian.org/debian", "South Korea", "KR", "https", true, true),
+    ("http://ftp.jp.debian.org/debian", "Japan", "JP", "http", true, true),
+    ("http://ftp.kr.debian.org/debian", "South Korea", "KR", "http", true, true),
     ("https://mirrors.ustc.edu.cn/debian", "China", "CN", "https", true, true),
     ("https://mirrors.tuna.tsinghua.edu.cn/debian", "China", "CN", "https", true, true),
-    ("https://ftp.br.debian.org/debian", "Brazil", "BR", "https", true, true),
-    ("https://ftp.au.debian.org/debian", "Australia", "AU", "https", true, true),
+    ("http://ftp.br.debian.org/debian", "Brazil", "BR", "http", true, true),
+    ("http://ftp.au.debian.org/debian", "Australia", "AU", "http", true, true),
     ("https://mirror.aarnet.edu.au/debian", "Australia", "AU", "https", true, true),
-    ("https://ftp.tr.debian.org/debian", "Turkey", "TR", "https", true, false),
+    ("http://ftp.tr.debian.org/debian", "Turkey", "TR", "http", true, false),
     ("https://mirror.netonomy.ch/debian", "Switzerland", "CH", "https", true, true),
-    ("https://ftp.se.debian.org/debian", "Sweden", "SE", "https", true, true),
-    ("https://ftp.fi.debian.org/debian", "Finland", "FI", "https", true, true),
-    ("https://ftp.it.debian.org/debian", "Italy", "IT", "https", true, true),
-    ("https://ftp.es.debian.org/debian", "Spain", "ES", "https", true, true),
-    ("https://ftp.at.debian.org/debian", "Austria", "AT", "https", true, true),
-    ("https://ftp.pl.debian.org/debian", "Poland", "PL", "https", true, true),
+    ("http://ftp.se.debian.org/debian", "Sweden", "SE", "http", true, true),
+    ("http://ftp.fi.debian.org/debian", "Finland", "FI", "http", true, true),
+    ("http://ftp.it.debian.org/debian", "Italy", "IT", "http", true, true),
+    ("http://ftp.es.debian.org/debian", "Spain", "ES", "http", true, true),
+    ("http://ftp.at.debian.org/debian", "Austria", "AT", "http", true, true),
+    ("http://ftp.pl.debian.org/debian", "Poland", "PL", "http", true, true),
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -258,6 +257,25 @@ pub fn get_curated_mirrors() -> Vec<ApiMirror> {
         .collect()
 }
 
+pub fn create_http_client(timeout: std::time::Duration) -> reqwest::blocking::Client {
+    reqwest::blocking::Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::blocking::Client::new())
+}
+
+pub fn create_direct_http_client(timeout: std::time::Duration) -> reqwest::blocking::Client {
+    reqwest::blocking::Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(timeout)
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::blocking::Client::new())
+}
+
 pub fn fetch_raw_api_status(force_network: bool) -> Result<String, String> {
     let cached = load_status_cache();
 
@@ -270,81 +288,83 @@ pub fn fetch_raw_api_status(force_network: bool) -> Result<String, String> {
         }
     }
 
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
+    let client = create_http_client(std::time::Duration::from_secs(10));
+    let direct_client = create_direct_http_client(std::time::Duration::from_secs(10));
 
-    let mut req = client.get(DEBIAN_MASTERLIST_URL);
+    // Try fetching with standard client, then direct client, then fallback URL
+    let urls = [DEBIAN_MASTERLIST_URL, DEBIAN_MASTERLIST_FALLBACK_URL];
+    let mut fetched_body = None;
+    let mut etag = None;
+    let mut last_modified = None;
 
-    if let Some(ref c) = cached {
-        if let Some(ref etag) = c.etag {
-            req = req.header("If-None-Match", etag);
+    for target_url in urls {
+        for http_client in [&client, &direct_client] {
+            let mut req = http_client.get(target_url);
+            if let Some(ref c) = cached {
+                if let Some(ref et) = c.etag {
+                    req = req.header("If-None-Match", et);
+                }
+                if let Some(ref lm) = c.last_modified {
+                    req = req.header("If-Modified-Since", lm);
+                }
+            }
+
+            if let Ok(resp) = req.send() {
+                if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
+                    if let Some(mut c) = cached.clone() {
+                        c.cached_at = Utc::now();
+                        save_status_cache(&c);
+                        return Ok(c.raw_json);
+                    }
+                }
+                if resp.status().is_success() {
+                    etag = resp
+                        .headers()
+                        .get("ETag")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|s| s.to_string());
+                    last_modified = resp
+                        .headers()
+                        .get("Last-Modified")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|s| s.to_string());
+                    if let Ok(text) = resp.text() {
+                        if !text.trim().is_empty() {
+                            fetched_body = Some(text);
+                            break;
+                        }
+                    }
+                }
+            }
         }
-        if let Some(ref lm) = c.last_modified {
-            req = req.header("If-Modified-Since", lm);
+        if fetched_body.is_some() {
+            break;
         }
     }
 
-    match req.send() {
-        Ok(resp) => {
-            if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
-                if let Some(mut c) = cached {
-                    c.cached_at = Utc::now();
-                    save_status_cache(&c);
-                    return Ok(c.raw_json);
-                }
-            }
-
-            if resp.status().is_success() {
-                let etag = resp
-                    .headers()
-                    .get("ETag")
-                    .and_then(|v| v.to_str().ok())
-                    .map(|s| s.to_string());
-                let last_modified = resp
-                    .headers()
-                    .get("Last-Modified")
-                    .and_then(|v| v.to_str().ok())
-                    .map(|s| s.to_string());
-                let body = resp
-                    .text()
-                    .map_err(|e| format!("Failed to read response body: {e}"))?;
-
-                let parsed = parse_debian_masterlist(&body);
-                let json_data = if parsed.is_empty() {
-                    let fallback = ApiResponse { urls: get_curated_mirrors() };
-                    serde_json::to_string(&fallback).unwrap_or_default()
-                } else {
-                    let response_obj = ApiResponse { urls: parsed };
-                    serde_json::to_string(&response_obj).unwrap_or_default()
-                };
-
-                let new_cache = StatusCache {
-                    cached_at: Utc::now(),
-                    etag,
-                    last_modified,
-                    raw_json: json_data.clone(),
-                };
-                save_status_cache(&new_cache);
-                Ok(json_data)
-            } else if let Some(c) = cached {
-                Ok(c.raw_json)
-            } else {
-                let fallback = ApiResponse { urls: get_curated_mirrors() };
-                serde_json::to_string(&fallback).map_err(|e| e.to_string())
-            }
-        }
-        Err(_) => {
-            if let Some(c) = cached {
-                if !c.raw_json.is_empty() {
-                    return Ok(c.raw_json);
-                }
-            }
+    if let Some(body) = fetched_body {
+        let parsed = parse_debian_masterlist(&body);
+        let json_data = if parsed.is_empty() {
             let fallback = ApiResponse { urls: get_curated_mirrors() };
-            serde_json::to_string(&fallback).map_err(|e| e.to_string())
-        }
+            serde_json::to_string(&fallback).unwrap_or_default()
+        } else {
+            let response_obj = ApiResponse { urls: parsed };
+            serde_json::to_string(&response_obj).unwrap_or_default()
+        };
+
+        let new_cache = StatusCache {
+            cached_at: Utc::now(),
+            etag,
+            last_modified,
+            raw_json: json_data.clone(),
+        };
+        save_status_cache(&new_cache);
+        Ok(json_data)
+    } else if let Some(c) = cached {
+        Ok(c.raw_json)
+    } else {
+        let fallback = ApiResponse { urls: get_curated_mirrors() };
+        serde_json::to_string(&fallback).map_err(|e| e.to_string())
     }
 }
 
@@ -509,18 +529,12 @@ impl MirrorManager {
             }
 
             let handle = std::thread::spawn(move || {
-                let client = match reqwest::blocking::Client::builder()
-                    .user_agent(USER_AGENT)
-                    .timeout(std::time::Duration::from_secs(4))
-                    .build()
-                {
-                    Ok(c) => c,
-                    Err(_) => return,
-                };
+                let client = create_http_client(std::time::Duration::from_secs(4));
+                let direct_client = create_direct_http_client(std::time::Duration::from_secs(4));
 
                 for idx in start_idx..end_idx {
                     let mirror = &mirrors_ref[idx];
-                    let speed = Self::test_mirror_speed_with_client(&client, &mirror.url);
+                    let speed = Self::test_mirror_speed_with_client(&client, &direct_client, &mirror.url);
                     let mut res = results_clone.lock().unwrap_or_else(|e| e.into_inner());
                     res.push((idx, speed));
                 }
@@ -543,33 +557,35 @@ impl MirrorManager {
 
     fn test_mirror_speed_with_client(
         client: &reqwest::blocking::Client,
+        direct_client: &reqwest::blocking::Client,
         url: &str,
     ) -> Option<f64> {
         let test_url = speed_test_url(url);
 
         let start = Instant::now();
-        match client.get(&test_url).send() {
-            Ok(resp) => {
-                if resp.status().is_success() {
-                    let duration = start.elapsed();
-                    let ms = duration.as_secs_f64() * 1000.0;
-                    Some(ms)
-                } else {
-                    None
-                }
+        if let Ok(resp) = client.get(&test_url).send() {
+            if resp.status().is_success() || resp.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+                let duration = start.elapsed();
+                return Some(duration.as_secs_f64() * 1000.0);
             }
-            Err(_) => None,
         }
+
+        // Direct fallback when environment proxy is invalid or fails
+        let start = Instant::now();
+        if let Ok(resp) = direct_client.get(&test_url).send() {
+            if resp.status().is_success() || resp.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+                let duration = start.elapsed();
+                return Some(duration.as_secs_f64() * 1000.0);
+            }
+        }
+
+        None
     }
 
     pub fn test_single_mirror_speed(url: &str) -> Option<f64> {
-        let client = reqwest::blocking::Client::builder()
-            .user_agent(USER_AGENT)
-            .timeout(std::time::Duration::from_secs(4))
-            .build()
-            .ok()?;
-
-        Self::test_mirror_speed_with_client(&client, url)
+        let client = create_http_client(std::time::Duration::from_secs(4));
+        let direct_client = create_direct_http_client(std::time::Duration::from_secs(4));
+        Self::test_mirror_speed_with_client(&client, &direct_client, url)
     }
 
     pub fn check_availability_concurrent(mirrors: &mut [Mirror], max_workers: usize) {
@@ -598,18 +614,12 @@ impl MirrorManager {
             }
 
             let handle = std::thread::spawn(move || {
-                let client = match reqwest::blocking::Client::builder()
-                    .user_agent(USER_AGENT)
-                    .timeout(std::time::Duration::from_secs(3))
-                    .build()
-                {
-                    Ok(c) => c,
-                    Err(_) => return,
-                };
+                let client = create_http_client(std::time::Duration::from_secs(4));
+                let direct_client = create_direct_http_client(std::time::Duration::from_secs(4));
 
                 for idx in start_idx..end_idx {
                     let mirror = &mirrors_ref[idx];
-                    let avail = Self::check_single_availability(&client, &mirror.url);
+                    let avail = Self::check_single_availability(&client, &direct_client, &mirror.url);
                     let mut res = results_clone.lock().unwrap_or_else(|e| e.into_inner());
                     res.push((idx, avail));
                 }
@@ -624,23 +634,69 @@ impl MirrorManager {
 
         let results_guard = results.lock().unwrap_or_else(|e| e.into_inner());
         for &(idx, avail) in results_guard.iter() {
-            if idx < mirrors.len() && !avail {
-                mirrors[idx].enabled = false;
+            if idx < mirrors.len() {
+                mirrors[idx].enabled = avail;
             }
         }
     }
 
-    fn check_single_availability(client: &reqwest::blocking::Client, url: &str) -> bool {
-        let probe = availability_url(url);
-        if let Ok(resp) = client.head(&probe).send() {
-            if resp.status().is_success() {
+    fn probe_url(client: &reqwest::blocking::Client, url: &str) -> bool {
+        let clean = url.trim_end_matches('/');
+
+        // 1. Primary probe: Debian trace master file via HEAD
+        let trace = availability_url(url);
+        if let Ok(resp) = client.head(&trace).send() {
+            let status = resp.status();
+            if status.is_success() || status.is_redirection() {
                 return true;
             }
         }
-        if let Ok(resp) = client.get(&speed_test_url(url)).send() {
-            return resp.status().is_success();
+
+        // 2. Secondary probe: Stable Release index via HEAD
+        let release = speed_test_url(url);
+        if let Ok(resp) = client.head(&release).send() {
+            let status = resp.status();
+            if status.is_success() || status.is_redirection() {
+                return true;
+            }
         }
+
+        // 3. Tertiary probe: Base mirror root via HEAD
+        let root = format!("{clean}/");
+        if let Ok(resp) = client.head(&root).send() {
+            let status = resp.status();
+            if status.is_success() || status.is_redirection() {
+                return true;
+            }
+        }
+
+        // 4. Fallback GET with small range header if server disallows or fails on HEAD
+        if let Ok(resp) = client
+            .get(&release)
+            .header("Range", "bytes=0-128")
+            .send()
+        {
+            let status = resp.status();
+            if status.is_success()
+                || status.is_redirection()
+                || status == reqwest::StatusCode::PARTIAL_CONTENT
+            {
+                return true;
+            }
+        }
+
         false
+    }
+
+    pub fn check_single_availability(
+        client: &reqwest::blocking::Client,
+        direct_client: &reqwest::blocking::Client,
+        url: &str,
+    ) -> bool {
+        if Self::probe_url(client, url) {
+            return true;
+        }
+        Self::probe_url(direct_client, url)
     }
 
     pub fn check_mirror_availability(mirrors: &mut [Mirror], max_workers: usize) {
